@@ -1,0 +1,4 @@
+../Core/Src/console.c:16:6:uart_sendchar	16	static
+../Core/Src/console.c:27:6:uart_sendstring	16	static
+../Core/Src/console.c:34:6:USART2_IRQHandler	4	static
+../Core/Src/console.c:46:6:console_init	16	static

@@ -1,0 +1,4 @@
+../Core/Src/console.c:16:6:uart_sendchar	2
+../Core/Src/console.c:27:6:uart_sendstring	2
+../Core/Src/console.c:34:6:USART2_IRQHandler	3
+../Core/Src/console.c:46:6:console_init	8

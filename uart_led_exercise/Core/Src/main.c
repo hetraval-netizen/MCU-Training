@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "console.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -137,6 +137,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   led_init();
   uart_init();
+  console_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
