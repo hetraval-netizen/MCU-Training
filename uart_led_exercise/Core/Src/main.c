@@ -103,6 +103,17 @@ void uart_init(void){
     USART2->CR1 |= USART_CR1_UE;     // Enable USART2
 }
 
+void timer_init(void) {
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; // Enable clock for TIM2
+
+    TIM2->PSC = 8000 - 1;
+
+    TIM2->ARR = 5000 - 1;
+
+    TIM2->DIER |= TIM_DIER_UIE;
+
+    NVIC_EnableIRQ(TIM2_IRQn);
+}
 
 /* USER CODE END 0 */
 
@@ -137,6 +148,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   led_init();
   uart_init();
+  timer_init();
   console_init();
   /* USER CODE END 2 */
 

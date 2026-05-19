@@ -1,4 +1,6 @@
 #include "main.h"
+#include "console.h"
+#include "led_control.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -43,7 +45,33 @@ void USART2_IRQHandler (void) {
     }
 }
 
+void parse_command(char *cmd) {
+    if (strcmp(cmd, "help") == 0) {
+        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n pwm\t-\tStart PWM\r\n count\t-\tStart counting\r\n help\t-\tShow this help message\r\n");
+    }
+    else if (strcmp(cmd, "pwm") == 0){
+        pwm_start();
+    }
+    else if (strcmp(cmd, "fast") == 0) {
+        fast_blink();
+    }
+    else if (strcmp(cmd, "slow") == 0) {
+        slow_blink();
+    }
+    else if (strcmp(cmd, "count") == 0) {
+        count();
+    }
+    else if (cmd[0] != '\0') { // If user typed something unknown
+        uart_sendstring("Error: Unknown command. Type 'help'.\r\n");
+    }
+}
+
 void console_init(void) {
+
+    uart_sendstring("Welcome to the UART Console!\r\n");
+    uart_sendstring("Type 'help' for a list of commands.\r\n");
+    uart_sendstring("\r> "); // Print prompt
+
     while (1){
         if (head != tail){
             char current_char = rx_buffer[tail];
@@ -54,28 +82,21 @@ void console_init(void) {
             if (current_char == '\r'){
                 uart_sendstring("\r\n"); // Move to new line after Enter key
                 cmd_buffer[cmd_index] = '\0'; // Null-terminate the command string
-                
-                if (strcmp(cmd_buffer, "help") == 0) {
-                    uart_sendstring("Available commands: fast, slow, pwm, count, help\r\n");
-                } 
-                else if (strcmp(cmd_buffer, "fast") == 0) {
-                    uart_sendstring("System Indication: Starting Fast Blink...\r\n");
-                    // We will trigger the timer here later!
-                }
-                else if (strcmp(cmd_buffer, "slow") == 0) {
-                    uart_sendstring("System Indication: Starting Slow Blink...\r\n");
-                    // We will trigger the timer here later!
-                }
-                else if (cmd_index > 0) { // If user typed something unknown
-                    uart_sendstring("Error: Unknown command. Type 'help'.\r\n");
-                }
-
+                parse_command(cmd_buffer);
                 uart_sendstring("\r> "); // Print a fresh prompt
                 cmd_index = 0;
 
             }
             else if (current_char == '\b'){
-                cmd_index--; // Move back the command index for backspace
+                if (cmd_index > 0) {
+                    cmd_index--;
+
+                    uart_sendstring(" \b");
+                }
+                else {
+                    uart_sendchar('\a'); // Beep if backspace is pressed at the beginning of the line
+                }
+                 // Move back the command index for backspace
             }
             else {
                 cmd_buffer[cmd_index] = current_char; // Store character in command buffer
