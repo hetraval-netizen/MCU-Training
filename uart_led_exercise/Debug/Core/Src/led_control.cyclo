@@ -1,7 +1,8 @@
-../Core/Src/led_control.c:8:6:toggle_led	1
-../Core/Src/led_control.c:12:6:set_led	2
-../Core/Src/led_control.c:20:6:TIM2_IRQHandler	2
-../Core/Src/led_control.c:32:6:fast_blink	1
-../Core/Src/led_control.c:38:6:slow_blink	1
-../Core/Src/led_control.c:44:6:pwm_start	1
-../Core/Src/led_control.c:49:6:count	1
+../Core/Src/led_control.c:12:6:toggle_led	1
+../Core/Src/led_control.c:16:6:set_led	2
+../Core/Src/led_control.c:24:6:TIM2_IRQHandler	5
+../Core/Src/led_control.c:48:6:fast_blink	1
+../Core/Src/led_control.c:61:6:slow_blink	1
+../Core/Src/led_control.c:74:6:pwm_start	3
+../Core/Src/led_control.c:93:6:pwm_animation	1
+../Core/Src/led_control.c:110:6:count	1

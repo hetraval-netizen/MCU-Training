@@ -59,12 +59,16 @@ void led_init(void){
     // Enable clock for GPIOA
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN; 
     
-    // Set PA5 to General Purpose Output Mode (01)
-    GPIOA->MODER &= ~GPIO_MODER_MODE5;   // Clear both bits for Pin 5
-    GPIOA->MODER |= GPIO_MODER_MODE5_0;  // Set Pin 5 to Output
-
     GPIOA->MODER &= ~GPIO_MODER_MODE8;   // Clear both bits for Pin 8
     GPIOA->MODER |= GPIO_MODER_MODE8_0;  // Set Pin 8 to Output
+    
+    // Set PA5 to General Purpose Output Mode (01)
+    GPIOA->MODER &= ~GPIO_MODER_MODE5;   // Clear both bits for Pin 5
+    GPIOA->MODER |= GPIO_MODER_MODE5_1;  // Set Pin 5 to Output
+
+    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL5; // Clear the 4 bits for Pin 5 (AFSEL5)
+    GPIOA->AFR[0] |= (1UL << GPIO_AFRL_AFSEL5_Pos); // Set AF1 for TIM2_CH1 on PA5
+
 }
 
 void uart_init(void){
@@ -104,15 +108,23 @@ void uart_init(void){
 }
 
 void timer_init(void) {
-    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; // Enable clock for TIM2
+  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
 
-    TIM2->PSC = 8000 - 1;
+  // Gear down to 10,000 Hz (10 ticks per millisecond)
+  TIM2->PSC = 8000 - 1; 
 
-    TIM2->ARR = 5000 - 1;
+  // Configure Channel 1 for PWM Mode 1
+  // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
+  TIM2->CCMR1 &= ~TIM_CCMR1_OC1M;
+  TIM2->CCMR1 |= (6UL << TIM_CCMR1_OC1M_Pos); 
 
-    TIM2->DIER |= TIM_DIER_UIE;
+  // Enable the Output on Channel 1 so it can drive PA5
+  TIM2->CCER |= TIM_CCER_CC1E;
 
-    NVIC_EnableIRQ(TIM2_IRQn);
+  // We keep the interrupt enabled because we will need it 
+  // later for the "Blink Count" feature!
+  TIM2->DIER |= TIM_DIER_UIE;
+  NVIC_EnableIRQ(TIM2_IRQn);
 }
 
 /* USER CODE END 0 */
@@ -151,20 +163,6 @@ int main(void)
   timer_init();
   console_init();
   /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-    GPIOA->ODR ^= GPIO_ODR_OD5; // Toggle PA5
-    HAL_Delay(500); // Delay for 500 ms
-    GPIOA->ODR ^= GPIO_ODR_OD5; // Toggle PA5
-    HAL_Delay(500); // Delay for 500 ms
-  }
-  /* USER CODE END 3 */
 }
 
 /**

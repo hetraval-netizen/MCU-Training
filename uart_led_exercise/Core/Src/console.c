@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #define RX_BFR_SIZE 64
 volatile char rx_buffer[RX_BFR_SIZE];
@@ -47,10 +48,15 @@ void USART2_IRQHandler (void) {
 
 void parse_command(char *cmd) {
     if (strcmp(cmd, "help") == 0) {
-        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n pwm\t-\tStart PWM\r\n count\t-\tStart counting\r\n help\t-\tShow this help message\r\n");
+        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n count\t-\tStart counting\r\n help\t-\tShow this help message\r\n pwm duty <Led Brightness>\t-\tGlow led at a specific brightness\r\n pwm animation\t-\tStart breathing animation\r\n");
     }
-    else if (strcmp(cmd, "pwm") == 0){
-        pwm_start();
+    else if (strncmp(cmd, "pwm duty ", 9) == 0){
+        char *endptr;
+        long duty = strtol(cmd + 9, &endptr, 10);
+        pwm_start(duty);
+    }
+    else if (strcmp (cmd, "pwm animation") == 0){
+        pwm_animation();
     }
     else if (strcmp(cmd, "fast") == 0) {
         fast_blink();

@@ -5,6 +5,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+volatile bool is_animating = false; 
+volatile int current_anim_duty = 0; 
+volatile int anim_direction = 1; // 1 means fading UP, -1 means fading DOWN
+
 void toggle_led(int led_num) {
     GPIOA->ODR ^= (1UL << led_num);
 }
@@ -18,32 +22,89 @@ void set_led(int led_num, bool state) {
 }
 
 void TIM2_IRQHandler(void) {
-    // Check if the "Update Interrupt Flag" (UIF) triggered this
     if (TIM2->SR & TIM_SR_UIF) {
-        
-        // 1. CLEAR THE FLAG! If you forget this, the CPU gets stuck here forever.
-        TIM2->SR &= ~TIM_SR_UIF;
+        TIM2->SR &= ~TIM_SR_UIF; // Clear flag
 
-        // 2. Toggle the LED on PA5
-        GPIOA->ODR ^= GPIO_ODR_OD5;
+        // --- The Breathing Animation State Machine ---
+        if (is_animating) {
+            // 1. Change the brightness based on our current direction
+            current_anim_duty += anim_direction;      
+            TIM2->CCR1 = current_anim_duty; 
+
+            // 2. Did we hit the ceiling? Turn around!
+            if (current_anim_duty >= 100) {
+                current_anim_duty = 100; // Safety clamp
+                anim_direction = -1;     // Change direction to DOWN
+            } 
+            // 3. Did we hit the floor? Turn around!
+            else if (current_anim_duty <= 0) {
+                current_anim_duty = 0;   // Safety clamp
+                anim_direction = 1;      // Change direction to UP
+            }
+        }
     }
 }
 
 void fast_blink(void) {
     uart_sendstring("System Indication: Starting Fast Blink...\r\n");
-    TIM2->ARR = 3000 - 1;      // Set timer to 300ms
-    TIM2->CR1 |= TIM_CR1_CEN; // Enable the Timer!
+    is_animating = false; // Stop any ongoing animation
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer to update safely
+
+    TIM2->CNT = 0; // Reset counter to start from 0
+
+    TIM2->ARR = 5000 - 1;      // Speed: 100ms (10 Hz)
+    TIM2->CCR1 = 2500;          // Duty Cycle: 50% of 1000
+    
+    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
 
 void slow_blink(void) {
     uart_sendstring("System Indication: Starting Slow Blink...\r\n");
-    TIM2->ARR = 10000 - 1;      // Set timer to 1000ms
-    TIM2->CR1 |= TIM_CR1_CEN; // Enable the Timer!
+    is_animating = false; // Stop any ongoing animation
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
+    
+    TIM2->CNT = 0; // Reset counter to start from 0
+
+    TIM2->ARR = 16000 - 1;      // Speed: 500ms (2 Hz)
+    TIM2->CCR1 = 8000;         // Duty Cycle: 50% of 5000
+    
+    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
 
-void pwm_start(void) {
+void pwm_start(int duty_cycle) {
+    if (duty_cycle < 0) duty_cycle = 0;
+    if (duty_cycle > 100) duty_cycle = 100;
+
+    is_animating = false; // Stop any ongoing animation
+
     uart_sendstring("System Indication: Starting PWM...\r\n");
-    // We will implement this later in the course! For now, just a placeholder.
+    
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
+
+    TIM2->CNT = 0; // Reset counter to start from 0
+
+    TIM2->ARR = 100 - 1;     // Speed: 1 second (1 Hz)
+
+    TIM2->CCR1 = duty_cycle -1; // Duty Cycle: duty_cycle% of 100
+
+    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
+}
+
+void pwm_animation(void){
+    uart_sendstring("System Indication: Starting Breathing LED...\r\n");
+    
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
+
+    TIM2->CNT = 0;             
+    TIM2->ARR = 100 - 1;       // 100 Hz frequency
+    TIM2->CCR1 = 0;            
+    
+    // Arm the state machine!
+    current_anim_duty = 0;
+    anim_direction = 1;        // <-- Start by going UP
+    is_animating = true;       
+
+    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
 
 void count(void) {
