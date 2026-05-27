@@ -48,14 +48,14 @@ void USART2_IRQHandler (void) {
 
 void parse_command(char *cmd) {
     if (strcmp(cmd, "help") == 0) {
-        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n count\t-\tStart counting\r\n help\t-\tShow this help message\r\n pwm duty <Led Brightness>\t-\tGlow led at a specific brightness\r\n pwm animation\t-\tStart breathing animation\r\n");
+        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n count <Number of Blinks>\t-\tStart counting\r\n help\t-\tShow this help message\r\n led brightness <Led Brightness>\t-\tGlow led at a specific brightness\r\n breathing\t-\tStart breathing animation\r\n");
     }
-    else if (strncmp(cmd, "pwm duty ", 9) == 0){
+    else if (strncmp(cmd, "led brightness ", 15) == 0){
         char *endptr;
-        long duty = strtol(cmd + 9, &endptr, 10);
+        long duty = strtol(cmd + 15, &endptr, 10);
         pwm_start(duty);
     }
-    else if (strcmp (cmd, "pwm animation") == 0){
+    else if (strcmp (cmd, "breathing") == 0){
         pwm_animation();
     }
     else if (strcmp(cmd, "fast") == 0) {
@@ -64,11 +64,14 @@ void parse_command(char *cmd) {
     else if (strcmp(cmd, "slow") == 0) {
         slow_blink();
     }
-    else if (strcmp(cmd, "count") == 0) {
-        count();
+    else if (strncmp(cmd, "count ", 6) == 0) {
+        char *endptr;
+        long target = strtol(cmd + 6, &endptr, 10);
+        count(target);
     }
-    else if (cmd[0] != '\0') { // If user typed something unknown
+    else if (cmd[0] != '\0') { 
         uart_sendstring("Error: Unknown command. Type 'help'.\r\n");
+        trigger_error(); // <-- Flash the Red LED!
     }
 }
 
@@ -79,6 +82,9 @@ void console_init(void) {
     uart_sendstring("\r> "); // Print prompt
 
     while (1){
+
+        process_error_led();
+
         if (head != tail){
             char current_char = rx_buffer[tail];
             tail = (tail + 1) % RX_BFR_SIZE; // Move tail index

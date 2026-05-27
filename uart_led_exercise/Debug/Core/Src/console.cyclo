@@ -2,4 +2,4 @@
 ../Core/Src/console.c:30:6:uart_sendstring	2
 ../Core/Src/console.c:37:6:USART2_IRQHandler	3
 ../Core/Src/console.c:49:6:parse_command	8
-../Core/Src/console.c:75:6:console_init	5
+../Core/Src/console.c:78:6:console_init	5

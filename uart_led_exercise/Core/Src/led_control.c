@@ -9,6 +9,13 @@ volatile bool is_animating = false;
 volatile int current_anim_duty = 0; 
 volatile int anim_direction = 1; // 1 means fading UP, -1 means fading DOWN
 
+volatile bool is_counting = false;
+volatile int count_value = 0;
+volatile int target_blinks = 0;
+
+uint32_t error_start_time = 0; // Stores the timestamp of the error
+bool is_error_active = false;  // Tracks if the error LED is currently ON
+
 void toggle_led(int led_num) {
     GPIOA->ODR ^= (1UL << led_num);
 }
@@ -18,6 +25,29 @@ void set_led(int led_num, bool state) {
         GPIOA->ODR |= (1UL << led_num); // Set the bit to turn on the LED
     } else {
         GPIOA->ODR &= ~(1UL << led_num); // Clear the bit to turn off the LED
+    }
+}
+
+void trigger_error(void) {
+    // 1. Turn ON the Error LED (PA8)
+    GPIOA->ODR |= (1UL << 8); 
+    
+    // 2. Record the exact millisecond this happened
+    error_start_time = HAL_GetTick(); 
+    
+    // 3. Set the flag so our background loop knows to watch it
+    is_error_active = true;
+}
+
+void process_error_led(void) {
+    // If the error LED is on, check if 500 milliseconds have passed
+    if (is_error_active && (HAL_GetTick() - error_start_time >= 1000)) {
+        
+        // Time is up! Turn OFF the Error LED (PA8)
+        GPIOA->ODR &= ~(1UL << 8); 
+        
+        // Reset the flag
+        is_error_active = false;
     }
 }
 
@@ -42,12 +72,23 @@ void TIM2_IRQHandler(void) {
                 anim_direction = 1;      // Change direction to UP
             }
         }
+        else if (is_counting) {
+            count_value++;
+
+            if (count_value >= target_blinks) {
+                is_counting = false;
+                TIM2->CR1 &= ~TIM_CR1_CEN; // Stop timer
+                TIM2->CCR1 = 0;
+                uart_sendstring("System Indication: Count Complete!\r\n");
+            }
+        }
     }
 }
 
 void fast_blink(void) {
     uart_sendstring("System Indication: Starting Fast Blink...\r\n");
     is_animating = false; // Stop any ongoing animation
+    is_counting = false; // Stop counting if it was active
     TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer to update safely
 
     TIM2->CNT = 0; // Reset counter to start from 0
@@ -61,6 +102,7 @@ void fast_blink(void) {
 void slow_blink(void) {
     uart_sendstring("System Indication: Starting Slow Blink...\r\n");
     is_animating = false; // Stop any ongoing animation
+    is_counting = false; // Stop counting if it was active
     TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
     
     TIM2->CNT = 0; // Reset counter to start from 0
@@ -76,6 +118,7 @@ void pwm_start(int duty_cycle) {
     if (duty_cycle > 100) duty_cycle = 100;
 
     is_animating = false; // Stop any ongoing animation
+    is_counting = false; // Stop counting if it was active
 
     uart_sendstring("System Indication: Starting PWM...\r\n");
     
@@ -92,6 +135,7 @@ void pwm_start(int duty_cycle) {
 
 void pwm_animation(void){
     uart_sendstring("System Indication: Starting Breathing LED...\r\n");
+    is_counting = false; // Stop counting if it was active
     
     TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
 
@@ -107,7 +151,18 @@ void pwm_animation(void){
     TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
 
-void count(void) {
+void count(int target) {
     uart_sendstring("System Indication: Starting Count...\r\n");
-    // We will implement this later in the course! For now, just a placeholder.
+    is_animating = false; // Stop any ongoing animation
+    is_counting = true;
+    count_value = 0;
+    target_blinks = target;
+
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
+
+    TIM2->CNT = 0; // Reset counter to start from 0
+    TIM2->ARR = 16000 - 1;
+    TIM2->CCR1 = 8000; // Duty Cycle: 50% of 16000
+
+    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
