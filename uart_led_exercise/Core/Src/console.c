@@ -48,7 +48,13 @@ void USART2_IRQHandler (void) {
 
 void parse_command(char *cmd) {
     if (strcmp(cmd, "help") == 0) {
-        uart_sendstring("Available commands:\r\n fast\t-\tFast blink\r\n slow\t-\tSlow blink\r\n count <Number of Blinks>\t-\tStart counting\r\n help\t-\tShow this help message\r\n led brightness <Led Brightness>\t-\tGlow led at a specific brightness\r\n breathing\t-\tStart breathing animation\r\n");
+        uart_sendstring("\r\nAvailable commands:\r\n"
+                        "  fast                            - Fast blink\r\n"
+                        "  slow                            - Slow blink\r\n"
+                        "  count <Number of Blinks>        - Start counting\r\n"
+                        "  led brightness <Led Brightness> - Glow led at a specific brightness\r\n"
+                        "  breathing                       - Start breathing animation\r\n"
+                        "  help                            - Show this help message\r\n");
     }
     else if (strncmp(cmd, "led brightness ", 15) == 0){
         char *endptr;
