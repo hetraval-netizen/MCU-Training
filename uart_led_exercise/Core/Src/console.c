@@ -15,6 +15,22 @@ char cmd_buffer[RX_BFR_SIZE];
 int cmd_index = 0;
 bool cmd_ready = false;
 
+void EXTI9_5_IRQHandler(void) {
+    if (EXTI->PR1 & EXTI_PR1_PIF9) {
+        EXTI->PR1 = EXTI_PR1_PIF9; // Clear flag
+        
+        uart_sendstring("scroll button pressed");
+    }
+}
+
+void EXTI15_10_IRQHandler(void) {
+    if (EXTI->PR1 & EXTI_PR1_PIF10) {
+        EXTI->PR1 = EXTI_PR1_PIF10; 
+
+        uart_sendstring("select button pressed");
+    }
+}
+
 
 void uart_sendchar (char c) {
     // Wait until the previous bit is send and we are ready for next char

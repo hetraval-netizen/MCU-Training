@@ -71,6 +71,29 @@ void led_init(void){
 
 }
 
+void btn_init(void){
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+    GPIOA->MODER &= ~GPIO_MODER_MODE9;
+    GPIOA->PUPDR &= ~(3UL << 18);
+    GPIOA->PUPDR |= (1UL << 18);
+
+    GPIOA->MODER &= ~GPIO_MODER_MODE10;
+    GPIOA->PUPDR &= ~(3UL << 20);
+    GPIOA->PUPDR |= (1UL << 20);
+
+    SYSCFG->EXTICR[2] &= ~SYSCFG_EXTICR3_EXTI9;
+    SYSCFG->EXTICR[2] &= ~SYSCFG_EXTICR3_EXTI10;
+
+    EXTI->FTSR1 |= (EXTI_FTSR1_FT9 | EXTI_FTSR1_FT10);
+
+    EXTI->IMR1 |= (EXTI_IMR1_IM9 | EXTI_IMR1_IM10);
+
+    NVIC_EnableIRQ(EXTI9_5_IRQn);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
 void uart_init(void){
     RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN; // Enable clock for USART2
 
@@ -151,6 +174,7 @@ int main(void)
 
   /* Configure the system clock */
   SystemClock_Config();
+  HAL_InitTick(TICK_INT_PRIORITY);
 
   /* USER CODE BEGIN SysInit */
 
@@ -161,6 +185,7 @@ int main(void)
   led_init();
   uart_init();
   timer_init();
+  btn_init();
   console_init();
   /* USER CODE END 2 */
 }
