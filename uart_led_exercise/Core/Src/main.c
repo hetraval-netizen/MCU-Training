@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "console.h"
+#include "oled.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -130,6 +131,41 @@ void uart_init(void){
     USART2->CR1 |= USART_CR1_UE;     // Enable USART2
 }
 
+void i2c_init(void){
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+    
+    GPIOB->MODER &= ~(GPIO_MODER_MODE6 | GPIO_MODER_MODE7);
+    GPIOB->MODER |= (GPIO_MODER_MODE6_1 | GPIO_MODER_MODE7_1);
+
+    GPIOB->AFR[0] &= ~GPIO_AFRL_AFSEL6; // Clear the 4 bits for Pin 6 (AFSEL6)
+    GPIOB->AFR[0] |= (4UL << GPIO_AFRL_AFSEL6_Pos);
+
+    GPIOB->AFR[0] &= ~GPIO_AFRL_AFSEL7; // Clear the 4 bits for Pin 7 (AFSEL7)
+    GPIOB->AFR[0] |= (4UL << GPIO_AFRL_AFSEL7_Pos);
+
+    GPIOB->OTYPER |= (GPIO_OTYPER_OT6 | GPIO_OTYPER_OT7);
+
+    // 6. Enable the clock for the I2C1 peripheral (attached to APB1 bus)
+    RCC->APB1ENR1 |= RCC_APB1ENR1_I2C1EN;
+
+    // 7. Make sure I2C1 is completely disabled before we change its settings
+    I2C1->CR1 &= ~I2C_CR1_PE; 
+
+    // 8. Set the I2C speed timing to 400 kHz Fast-Mode (Assuming an 80 MHz system clock)
+    I2C1->TIMINGR = 0x90310309; 
+
+    // 9. Turn the I2C1 peripheral ON
+    I2C1->CR1 |= I2C_CR1_PE;
+}
+
+void oled_init(void) {
+    for(volatile uint32_t i = 0; i < 50000; i++);
+    oled_send_cmd(0xAE); // Turn display OFF
+    oled_send_cmd(0x8D); oled_send_cmd(0x14); // Turn Charge Pump ON 
+    oled_send_cmd(0xAF); // Turn display ON
+    oled_send_cmd(0xA4); // Read from RAM
+}
+
 void timer_init(void) {
   RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
 
@@ -185,6 +221,8 @@ int main(void)
   led_init();
   uart_init();
   timer_init();
+  i2c_init();
+  oled_init();
   btn_init();
   console_init();
   /* USER CODE END 2 */
