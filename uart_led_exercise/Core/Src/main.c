@@ -164,6 +164,7 @@ void oled_init(void) {
     oled_send_cmd(0x8D); oled_send_cmd(0x14); // Turn Charge Pump ON 
     oled_send_cmd(0xAF); // Turn display ON
     oled_send_cmd(0xA4); // Read from RAM
+    print_setting_oled(FAST_BLINK);
 }
 
 void timer_init(void) {

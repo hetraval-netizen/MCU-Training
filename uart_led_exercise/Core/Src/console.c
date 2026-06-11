@@ -1,6 +1,7 @@
 #include "main.h"
 #include "console.h"
 #include "led_control.h"
+#include "oled.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -15,11 +16,48 @@ char cmd_buffer[RX_BFR_SIZE];
 int cmd_index = 0;
 bool cmd_ready = false;
 
+volatile uint32_t last_press_time_pin9  = 0;
+volatile uint32_t last_press_time_pin10 = 0;
+
+#define DEBOUNCE_DELAY_MS 200 
+
+volatile int current_setting = 0;
+volatile int selected_setting = 0;
+
+
+void oled_execute_led_pattern(int led_pattern){
+    if (led_pattern == FAST_BLINK)
+        fast_blink();
+    
+    if (led_pattern == SLOW_BLINK)
+        slow_blink();
+
+    if (led_pattern == BREATHING)
+        pwm_animation();
+
+    return;
+}
+
+
 void EXTI9_5_IRQHandler(void) {
     if (EXTI->PR1 & EXTI_PR1_PIF9) {
         EXTI->PR1 = EXTI_PR1_PIF9; // Clear flag
         
-        uart_sendstring("scroll button pressed");
+        uint32_t current_time = HAL_GetTick();
+
+        if ((current_time - last_press_time_pin9) < DEBOUNCE_DELAY_MS)
+            return;
+
+        last_press_time_pin9 = current_time;
+        
+        current_setting++;
+        if (current_setting >= 3)
+            current_setting = 0;
+        
+        print_setting_oled(current_setting);
+        
+
+        uart_sendstring("scroll button pressed\r\n");
     }
 }
 
@@ -27,7 +65,19 @@ void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR1 & EXTI_PR1_PIF10) {
         EXTI->PR1 = EXTI_PR1_PIF10; 
 
-        uart_sendstring("select button pressed");
+        uint32_t current_time = HAL_GetTick();
+
+        if ((current_time - last_press_time_pin10) < DEBOUNCE_DELAY_MS)
+            return;
+
+        last_press_time_pin10 = current_time;
+
+        if (selected_setting == current_setting) {
+            uart_sendstring("Setting already in action");
+        }
+        selected_setting = current_setting;
+        oled_execute_led_pattern(selected_setting);
+        uart_sendstring("select button pressed\r\n");
     }
 }
 

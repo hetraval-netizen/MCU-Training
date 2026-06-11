@@ -1,4 +1,8 @@
-../Core/Src/oled.c:6:6:oled_write_packet	16	static
-../Core/Src/oled.c:39:8:oled_send_cmd	16	static
-../Core/Src/oled.c:43:8:oled_send_data	16	static
-../Core/Src/oled.c:47:8:oled_clear	16	static
+../Core/Src/oled.c:111:13:oled_write_packet	16	static
+../Core/Src/oled.c:144:6:oled_send_cmd	16	static
+../Core/Src/oled.c:148:6:oled_send_data	16	static
+../Core/Src/oled.c:152:6:oled_clear	16	static
+../Core/Src/oled.c:164:6:oled_draw_char	40	static
+../Core/Src/oled.c:187:6:oled_print_str	24	static
+../Core/Src/oled.c:208:6:oled_print_str_highlight	24	static
+../Core/Src/oled.c:229:6:print_setting_oled	24	static
