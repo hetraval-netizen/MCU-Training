@@ -60,8 +60,8 @@ all: main-build
 main-build: uart_led_exercise.elf secondary-outputs
 
 # Tool invocations
-uart_led_exercise.elf uart_led_exercise.map: $(OBJS) $(USER_OBJS) /home/jyoti/mcu_training/MCU-Training/uart_led_exercise/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "uart_led_exercise.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/jyoti/mcu_training/MCU-Training/uart_led_exercise/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="uart_led_exercise.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+uart_led_exercise.elf uart_led_exercise.map: $(OBJS) $(USER_OBJS) /home/kalaravparmar/MCU-Training/uart_led_exercise/STM32L476RGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "uart_led_exercise.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/kalaravparmar/MCU-Training/uart_led_exercise/STM32L476RGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="uart_led_exercise.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "console.h"
 #include "oled.h"
+#include "mpu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -131,6 +132,47 @@ void uart_init(void){
     USART2->CR1 |= USART_CR1_UE;     // Enable USART2
 }
 
+void spi_init(void) {
+  // 1. Enable clocks for GPIO A, GPIO B, and the SPI1 peripheral engine
+  RCC->AHB2ENR |= (RCC_AHB2ENR_GPIOAEN | RCC_AHB2ENR_GPIOBEN);
+  RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
+
+  // 2. Set GPIOA-15 as standard Output Mode (01) for Software Chip Select
+  GPIOA->MODER &= ~GPIO_MODER_MODE15;
+  GPIOA->MODER |= GPIO_MODER_MODE15_0;
+
+  // 3. Set PA15 High immediately (Idle state for MPU-9250 SPI)
+  GPIOA->ODR |= GPIO_ODR_OD15; 
+
+  // 4. Safely clear Port B pins 3, 4, and 5 completely
+  GPIOB->MODER &= ~(GPIO_MODER_MODE3 | GPIO_MODER_MODE4 | GPIO_MODER_MODE5);
+  // Configure PB3, PB4, PB5 into Alternate Function Mode (10)
+  GPIOB->MODER |= (GPIO_MODER_MODE3_1 | GPIO_MODER_MODE4_1 | GPIO_MODER_MODE5_1);
+
+  // 5. Map PB3, PB4, PB5 to AF5 (SPI1) - Explicitly mask and overwrite
+  GPIOB->AFR[0] &= ~(GPIO_AFRL_AFSEL3 | GPIO_AFRL_AFSEL4 | GPIO_AFRL_AFSEL5);
+  GPIOB->AFR[0] |= (5UL << GPIO_AFRL_AFSEL3_Pos) |
+                   (5UL << GPIO_AFRL_AFSEL4_Pos) |
+                   (5UL << GPIO_AFRL_AFSEL5_Pos);
+
+  // 6. Configure the SPI1 Hardware Control Register 1 (CR1)
+  SPI1->CR1 = 0; // Clear register to wipe out default uninitialized states
+  SPI1->CR1 |= SPI_CR1_MSTR;                  // Set STM32 as SPI Bus Master
+  SPI1->CR1 |= (SPI_CR1_BR_0 | SPI_CR1_BR_1); // Baud Rate Prescaler: /16 (5MHz clock)
+  SPI1->CR1 |= SPI_CR1_CPOL;                  // CPOL = 1 (Clock High when idle)
+  SPI1->CR1 |= SPI_CR1_CPHA;                  // CPHA = 1 (Capture data on 2nd clock edge)
+  SPI1->CR1 |= SPI_CR1_SSM;                   // Enable Software Slave Management
+  SPI1->CR1 |= SPI_CR1_SSI;                   // Force internal master token High
+
+  // 7. Configure SPI1 Control Register 2 (CR2)
+  SPI1->CR2 = 0;
+  SPI1->CR2 |= (7UL << SPI_CR2_DS_Pos);       // Set 8-bit data size frame
+  SPI1->CR2 |= SPI_CR2_FRXTH;                 // Force RX FIFO Threshold to 8-bit mode
+
+  // 8. Fire up the SPI1 hardware peripheral
+  SPI1->CR1 |= SPI_CR1_SPE;
+}
+
 void i2c_init(void){
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
     
@@ -225,6 +267,18 @@ int main(void)
   i2c_init();
   oled_init();
   btn_init();
+  spi_init();
+
+  uint8_t chip_num = mpu_read_reg(0x75);
+
+  if (chip_num == 0x71 || chip_num == 0x70){
+      uart_sendstring("SPI communication successfull!!!!\r\n");
+      mpu_configure();
+  }
+  else {
+      uart_sendstring("SPI communication Error!!!\r\n");
+  }
+
   console_init();
   /* USER CODE END 2 */
 }

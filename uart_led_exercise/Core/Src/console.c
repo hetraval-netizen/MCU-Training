@@ -2,6 +2,7 @@
 #include "console.h"
 #include "led_control.h"
 #include "oled.h"
+#include "mpu.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -19,7 +20,7 @@ bool cmd_ready = false;
 volatile uint32_t last_press_time_pin9  = 0;
 volatile uint32_t last_press_time_pin10 = 0;
 
-#define DEBOUNCE_DELAY_MS 200 
+#define DEBOUNCE_DELAY_MS 50 
 
 volatile int current_setting = 0;
 volatile int selected_setting = 0;
@@ -120,6 +121,7 @@ void parse_command(char *cmd) {
                         "  count <Number of Blinks>        - Start counting\r\n"
                         "  led brightness <Led Brightness> - Glow led at a specific brightness\r\n"
                         "  breathing                       - Start breathing animation\r\n"
+                        "  imu                             - Print IMU stats\r\n"
                         "  help                            - Show this help message\r\n");
     }
     else if (strncmp(cmd, "led brightness ", 15) == 0){
@@ -140,6 +142,24 @@ void parse_command(char *cmd) {
         char *endptr;
         long target = strtol(cmd + 6, &endptr, 10);
         count(target);
+    }
+    else if (strcmp(cmd, "imu") == 0) {
+        int16_t accel[3] = {0};
+        int16_t gyro[3] = {0};
+        char output_bfr[128];
+
+        // 1. Fetch fresh raw bits from the MPU-9250 over SPI
+        mpu_read_raw_data(accel, gyro);
+
+        // 2. Print Accelerometer Raw Values
+        uart_sendstring("\r\n--- MPU-9250 Raw Sensor Telemetry ---\r\n");
+        sprintf(output_bfr, "  ACCEL -> X: %d\tY: %d\tZ: %d\r\n", accel[0], accel[1], accel[2]);
+        uart_sendstring(output_bfr);
+
+        // 3. Print Gyroscope Raw Values
+        sprintf(output_bfr, "  GYRO  -> X: %d\tY: %d\tZ: %d\r\n", gyro[0], gyro[1], gyro[2]);
+        uart_sendstring(output_bfr);
+        uart_sendstring("-------------------------------------\r\n");
     }
     else if (cmd[0] != '\0') { 
         uart_sendstring("Error: Unknown command. Type 'help'.\r\n");
