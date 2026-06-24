@@ -85,6 +85,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+  RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+
+  // Set PA5 to General Purpose Output Mode (01)
+  GPIOA->MODER &= ~GPIO_MODER_MODE5;   // Clear both bits for Pin 5
+  GPIOA->MODER |= GPIO_MODER_MODE5_0;  // Set Pin 5 to Output
 
   /* USER CODE END 2 */
 
@@ -92,9 +97,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
+	GPIOA->ODR ^= GPIO_ODR_OD5;
+	for (volatile int i = 0; i < 6600000; i++);
   }
   /* USER CODE END 3 */
 }
