@@ -42,7 +42,7 @@ void parse_command (char *cmd) {
     for (int i = 0; i < NUM_COMMANDS; i++) {
         if (cmd_table[i].is_prefix){
             int length = strlen(cmd_table[i].name);
-            if (strncmp(cmd, cmd_table[i].name, length)){
+            if (strncmp(cmd, cmd_table[i].name, length) == 0){
                 cmd_table[i].handler(cmd + length);
                 return;
             }
@@ -69,25 +69,25 @@ void handle_help (char *args){
 }
 
 void handle_fast (char *args){
-    fast_blink();
+    led_set_mode(LED_MODE_FAST_BLINK, 0);
 }
 
 void handle_slow (char *args){
-    slow_blink();
+    led_set_mode(LED_MODE_SLOW_BLINK, 0);
 }
 
 void handle_breathing (char *args){
-    pwm_animation();
+    led_set_mode(LED_MODE_BREATHING, 0);
 }
 
 void handle_count (char *args){
     char *endptr;
     long target = strtol(args, &endptr, 10);
-    count(target);
+    led_set_mode(LED_MODE_COUNT, target);
 }
 
 void handle_led_brightness (char *args){
     char *endptr;
     long duty = strtol(args, &endptr, 10);
-    pwm_start(duty);
+    led_set_mode(LED_MODE_PWM, duty);
 }

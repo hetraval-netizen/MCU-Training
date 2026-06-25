@@ -9,168 +9,164 @@
 #define MIN_ANIMATION_LIMIT 0
 #define MAX_ANIMATION_LIMIT 100
 
-volatile bool is_animating = false; 
-volatile int current_anim_duty = 0; 
-volatile int anim_direction = 1; // 1 means fading UP, -1 means fading DOWN
+/* --- Volatile State Variables (Accessed in ISR and Threads) --- */
+volatile bool is_animating = false;     // Controls breathing mode active status
+volatile int current_anim_duty = 0;     // Stores the live dynamic PWM duty cycle value
+volatile int anim_direction = 1;        // Tracks fade ramp direction: 1=UP, -1=DOWN
 
-volatile bool is_counting = false;
-volatile int count_value = 0;
-volatile int target_blinks = 0;
+volatile bool is_counting = false;      // Controls finite blink sequence loop execution
+volatile int count_value = 0;           // Tracks active elapsed transitions completed
+volatile int target_blinks = 0;         // Upper cutoff limit for finite count tracker
 
-uint32_t error_start_time = 0; // Stores the timestamp of the error
-bool is_error_active = false;  // Tracks if the error LED is currently ON
+/* --- Static Application State Variables --- */
+uint32_t error_start_time = 0;          // Tracks millisecond timestamp of error event
+bool is_error_active = false;           // Tracks if the Error indicator is active
 
+/**
+ * @brief  Internal helper to safely halt and reset the TIM2 register configuration profiles.
+ * @note   This ensures clean transitions when hopping between different LED modes.
+ */
+static void led_reset_timer_state(void) {
+    TIM2->CR1 &= ~TIM_CR1_CEN; // Halt register tracking pipeline for configuration
+    TIM2->CNT = 0;             // Flush active ticks register history trace
+    TIM2->CCR1 = 0;            // Default the Capture/Compare duty match register back to 0
+    is_animating = false;      // Explicitly pull down parallel mode flags
+    is_counting = false;       // Explicitly pull down parallel mode flags
+}
+
+/**
+ * @brief  Initializes GPIOA pins for Status (PA5) and Error (PA8) LEDs.
+ */
 void led_init(void){
-    // Enable clock for GPIOA
+    /* Supply power clock to GPIOA port peripheral */
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN; 
     
-    GPIOA->MODER &= ~GPIO_MODER_MODE8;   // Clear both bits for Pin 8
-    GPIOA->MODER |= GPIO_MODER_MODE8_0;  // Set Pin 8 to Output
+    /* Configure Pin 8 (Error Indicator LED) as General Purpose Output */
+    GPIOA->MODER &= ~GPIO_MODER_MODE8;   
+    GPIOA->MODER |= GPIO_MODER_MODE8_0;  
     
-    // Set PA5 to General Purpose Output Mode (01)
-    GPIOA->MODER &= ~GPIO_MODER_MODE5;   // Clear both bits for Pin 5
-    GPIOA->MODER |= GPIO_MODER_MODE5_1;  // Set Pin 5 to Output
+    /* Configure Pin 5 (Status PWM LED) as Alternate Function Mode */
+    GPIOA->MODER &= ~GPIO_MODER_MODE5;   
+    GPIOA->MODER |= GPIO_MODER_MODE5_1;  
 
-    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL5; // Clear the 4 bits for Pin 5 (AFSEL5)
-    GPIOA->AFR[0] |= (1UL << GPIO_AFRL_AFSEL5_Pos); // Set AF1 for TIM2_CH1 on PA5
-
+    /* Map GPIOA Pin 5 specifically to hardware Alternate Function 1 (TIM2_CH1) */
+    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL5;
+    GPIOA->AFR[0] |= (1UL << GPIO_AFRL_AFSEL5_Pos);
 }
 
+/**
+ * @brief  Activates the hardware Error indicator pin (PA8).
+ */
 void trigger_error(void) {
-    // 1. Turn ON the Error LED (PA8)
-    GPIOA->ODR |= GPIO_ODR_OD8; 
-    
-    // 2. Record the exact millisecond this happened
+    GPIOA->ODR |= GPIO_ODR_OD8;       
     error_start_time = HAL_GetTick(); 
-    
-    // 3. Set the flag so our background loop knows to watch it
-    is_error_active = true;
+    is_error_active = true;           
 }
 
+/**
+ * @brief  Monitors and enforces the active Error LED runtime timeout.
+ */
 void reset_error_led(void) {
-    // If the error LED is on, check if 500 milliseconds have passed
     if (is_error_active && (HAL_GetTick() - error_start_time >= 1000)) {
-        
-        // Time is up! Turn OFF the Error LED (PA8)
-        GPIOA->ODR &= ~GPIO_ODR_OD8; 
-        
-        // Reset the flag
-        is_error_active = false;
+        GPIOA->ODR &= ~GPIO_ODR_OD8;  
+        is_error_active = false;      
     }
 }
 
+/**
+ * @brief  Centralized API to control status LED behavioral operational configurations.
+ * @details Evaluates the targeting mode requested, re-adjusts basic frequency boundaries,
+ *          configures the relevant status flags, and reignites the hardware timing system.
+ * @param  mode: Choice from Led_Mode_t identifying the targeted operation.
+ * @param  param: Contextual configuration argument. Serves as 'duty cycle' during 
+ *                LED_MODE_PWM, or serves as 'target blink counts' during LED_MODE_COUNT.
+ *                Ignored for basic blink or breathing configurations.
+ * @retval None
+ */
+void led_set_mode(Led_Mode_t mode, int param) {
+    /* Halt the active pipeline execution configuration states cleanly */
+    led_reset_timer_state();
+
+    switch (mode) {
+        case LED_MODE_FAST_BLINK:
+            uart_sendstring("System Indication: Starting Fast Blink...\r\n");
+            TIM2->ARR = 5000 - 1;      // Force target Auto-Reload value (100ms cycle rate)
+            TIM2->CCR1 = 2500;         // Enforce a strict 50% square wave profile ratio
+            break;
+
+        case LED_MODE_SLOW_BLINK:
+            uart_sendstring("System Indication: Starting Slow Blink...\r\n");
+            TIM2->ARR = 16000 - 1;     // Force target Auto-Reload slow frequency index
+            TIM2->CCR1 = 8000;         // Enforce a strict 50% square wave profile ratio
+            break;
+
+        case LED_MODE_PWM:
+            /* Safety filter: Check and clamp parameters inside hardware limit guidelines */
+            if (param < MIN_ANIMATION_LIMIT) param = MIN_ANIMATION_LIMIT;
+            if (param > MAX_ANIMATION_LIMIT) param = MAX_ANIMATION_LIMIT;
+
+            uart_sendstring("System Indication: Starting PWM...\r\n");
+            TIM2->ARR = MAX_ANIMATION_LIMIT - 1; // Align auto-reload to base 100 scale index
+            TIM2->CCR1 = param - 1;              // Set active balance profile logic match point
+            break;
+
+        case LED_MODE_BREATHING:
+            uart_sendstring("System Indication: Starting Breathing LED...\r\n");
+            TIM2->ARR = 100 - 1;       // Configure standard base step 100Hz tick range
+            
+            /* Configure dynamic values to trigger execution thread loop in the ISR */
+            current_anim_duty = 0;     // Initialize duty starting baseline level
+            anim_direction = 1;        // Prime index to ramp intensity values upwards
+            is_animating = true;       // Set flag to lock engine state machine on
+            break;
+
+        case LED_MODE_COUNT:
+            uart_sendstring("System Indication: Starting Count...\r\n");
+            count_value = 0;           // Clear historic state count tracking history
+            target_blinks = param;     // Cache target profile request limit
+            TIM2->ARR = 16000 - 1;     // Configure standardized counting tracking base range
+            TIM2->CCR1 = 8000;         // Set regular 50% pulse width balance profile metrics
+            is_counting = true;        // Engage local interrupt counter validation tracking
+            break;
+
+        default:
+            uart_sendstring("System Error: Invalid LED Mode Selected\r\n");
+            return; // Return immediately without igniting the timer pipeline
+    }
+
+    /* Start the peripheral timer configuration profiles rolling */
+    TIM2->CR1 |= TIM_CR1_CEN;
+}
+
+/**
+ * @brief  TIM2 Global Update Interrupt Service Routine.
+ */
 void TIM2_IRQHandler(void) {
     if (TIM2->SR & TIM_SR_UIF) {
-        TIM2->SR &= ~TIM_SR_UIF; // Clear flag
+        TIM2->SR &= ~TIM_SR_UIF; 
 
-        // --- The Breathing Animation State Machine ---
         if (is_animating) {
-            // 1. Change the brightness based on our current direction
-            current_anim_duty += anim_direction;      
-            TIM2->CCR1 = current_anim_duty; 
+            current_anim_duty += anim_direction; 
+            TIM2->CCR1 = current_anim_duty;      
 
-            // 2. Did we hit the ceiling? Turn around!
             if (current_anim_duty >= MAX_ANIMATION_LIMIT) {
-                current_anim_duty = MAX_ANIMATION_LIMIT; // Safety clamp
-                anim_direction = -1;     // Change direction to DOWN
+                current_anim_duty = MAX_ANIMATION_LIMIT; 
+                anim_direction = -1; 
             } 
-            // 3. Did we hit the floor? Turn around!
             else if (current_anim_duty <= 0) {
-                current_anim_duty = 0;   // Safety clamp
-                anim_direction = 1;      // Change direction to UP
+                current_anim_duty = 0; 
+                anim_direction = 1;  
             }
         }
         else if (is_counting) {
-            count_value++;
+            count_value++; 
 
             if (count_value >= target_blinks) {
-                is_counting = false;
-                TIM2->CR1 &= ~TIM_CR1_CEN; // Stop timer
-                TIM2->CCR1 = 0;
+                is_counting = false;       
+                TIM2->CR1 &= ~TIM_CR1_CEN; 
+                TIM2->CCR1 = 0;            
                 uart_sendstring("System Indication: Count Complete!\r\n");
             }
         }
     }
-}
-
-void fast_blink(void) {
-    uart_sendstring("System Indication: Starting Fast Blink...\r\n");
-    is_animating = false; // Stop any ongoing animation
-    is_counting = false; // Stop counting if it was active
-    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer to update safely
-
-    TIM2->CNT = 0; // Reset counter to start from 0
-
-    TIM2->ARR = 5000 - 1;      // Speed: 100ms (10 Hz)
-    TIM2->CCR1 = 2500;          // Duty Cycle: 50% of 1000
-    
-    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
-}
-
-void slow_blink(void) {
-    uart_sendstring("System Indication: Starting Slow Blink...\r\n");
-    is_animating = false; // Stop any ongoing animation
-    is_counting = false; // Stop counting if it was active
-    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
-    
-    TIM2->CNT = 0; // Reset counter to start from 0
-
-    TIM2->ARR = 16000 - 1;
-    TIM2->CCR1 = 8000;         // Duty Cycle: 50% of 16000
-    
-    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
-}
-
-void pwm_start(int duty_cycle) {
-    if (duty_cycle < MIN_ANIMATION_LIMIT) duty_cycle = MIN_ANIMATION_LIMIT;
-    if (duty_cycle > MAX_ANIMATION_LIMIT) duty_cycle = MAX_ANIMATION_LIMIT;
-
-    is_animating = false; // Stop any ongoing animation
-    is_counting = false; // Stop counting if it was active
-
-    uart_sendstring("System Indication: Starting PWM...\r\n");
-    
-    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
-
-    TIM2->CNT = 0; // Reset counter to start from 0
-
-    TIM2->ARR = MAX_ANIMATION_LIMIT - 1;     // Speed: 1 second (1 Hz)
-
-    TIM2->CCR1 = duty_cycle -1; // Duty Cycle: duty_cycle% of 100
-
-    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
-}
-
-void pwm_animation(void){
-    uart_sendstring("System Indication: Starting Breathing LED...\r\n");
-    is_counting = false; // Stop counting if it was active
-    
-    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
-
-    TIM2->CNT = 0;             
-    TIM2->ARR = 100 - 1;       // 100 Hz frequency
-    TIM2->CCR1 = 0;            
-    
-    // Arm the state machine!
-    current_anim_duty = 0;
-    anim_direction = 1;        // <-- Start by going UP
-    is_animating = true;       
-
-    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
-}
-
-void count(int target) {
-    uart_sendstring("System Indication: Starting Count...\r\n");
-    is_animating = false; // Stop any ongoing animation
-    is_counting = true;
-    count_value = 0;
-    target_blinks = target;
-
-    TIM2->CR1 &= ~TIM_CR1_CEN; // Pause timer
-
-    TIM2->CNT = 0; // Reset counter to start from 0
-    TIM2->ARR = 16000 - 1;
-    TIM2->CCR1 = 8000; // Duty Cycle: 50% of 16000
-
-    TIM2->CR1 |= TIM_CR1_CEN;  // Restart timer
 }
