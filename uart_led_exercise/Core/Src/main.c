@@ -1,0 +1,369 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "console.h"
+#include "oled.h"
+#include "mpu.h"
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+#define OPERATING_FREQUENCY 80000000
+#define BAUD_RATE 115200
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+void led_init(void){
+    // Enable clock for GPIOA
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN; 
+    
+    GPIOA->MODER &= ~GPIO_MODER_MODE8;   // Clear both bits for Pin 8
+    GPIOA->MODER |= GPIO_MODER_MODE8_0;  // Set Pin 8 to Output
+    
+    // Set PA5 to General Purpose Output Mode (01)
+    GPIOA->MODER &= ~GPIO_MODER_MODE5;   // Clear both bits for Pin 5
+    GPIOA->MODER |= GPIO_MODER_MODE5_1;  // Set Pin 5 to Output
+
+    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL5; // Clear the 4 bits for Pin 5 (AFSEL5)
+    GPIOA->AFR[0] |= (1UL << GPIO_AFRL_AFSEL5_Pos); // Set AF1 for TIM2_CH1 on PA5
+
+}
+
+void btn_init(void){
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+    GPIOA->MODER &= ~GPIO_MODER_MODE9;
+    GPIOA->PUPDR &= ~(3UL << 18);
+    GPIOA->PUPDR |= (1UL << 18);
+
+    GPIOA->MODER &= ~GPIO_MODER_MODE10;
+    GPIOA->PUPDR &= ~(3UL << 20);
+    GPIOA->PUPDR |= (1UL << 20);
+
+    SYSCFG->EXTICR[2] &= ~SYSCFG_EXTICR3_EXTI9;
+    SYSCFG->EXTICR[2] &= ~SYSCFG_EXTICR3_EXTI10;
+
+    EXTI->FTSR1 |= (EXTI_FTSR1_FT9 | EXTI_FTSR1_FT10);
+
+    EXTI->IMR1 |= (EXTI_IMR1_IM9 | EXTI_IMR1_IM10);
+
+    NVIC_EnableIRQ(EXTI9_5_IRQn);
+    NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
+void uart_init(void){
+    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN; // Enable clock for USART2
+
+    // Set alternate function for PA2 (Pin 2)
+    GPIOA->MODER &= ~GPIO_MODER_MODE2;      // Clear bits for Pin 2
+    GPIOA->MODER |= GPIO_MODER_MODE2_1;     // Set to Alternate Function (10)
+
+    // Set alternate function for PA3 (Pin 3)
+    GPIOA->MODER &= ~GPIO_MODER_MODE3;      // Clear bits for Pin 3
+    GPIOA->MODER |= GPIO_MODER_MODE3_1;     // Set to Alternate Function (10)
+
+    // --- Set Alternate function register to UART TX (PA2 -> AF7) ---
+    // Clear the 4 bits for Pin 2 (AFSEL2)
+    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL2; 
+    // Shift the number '7' into the Pin 2 position
+    GPIOA->AFR[0] |= (7UL << GPIO_AFRL_AFSEL2_Pos); 
+
+    // --- Set Alternate function register to UART RX (PA3 -> AF7) ---
+    // Clear the 4 bits for Pin 3 (AFSEL3)
+    GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL3; 
+    // Shift the number '7' into the Pin 3 position
+    GPIOA->AFR[0] |= (7UL << GPIO_AFRL_AFSEL3_Pos);
+
+    // UART Hardware Configuration
+    USART2->CR1 = 0;
+    USART2->BRR = OPERATING_FREQUENCY / BAUD_RATE;
+
+    USART2->CR1 |= USART_CR1_RXNEIE; // Enable RXNE interrupt
+    USART2->CR1 |= USART_CR1_TE;     // Enable transmitter
+    USART2->CR1 |= USART_CR1_RE;     // Enable receiver
+
+    NVIC_EnableIRQ(USART2_IRQn);
+
+    USART2->CR1 |= USART_CR1_UE;     // Enable USART2
+}
+
+void spi_init(void) {
+  // 1. Enable clocks for GPIO A, GPIO B, and the SPI1 peripheral engine
+  RCC->AHB2ENR |= (RCC_AHB2ENR_GPIOAEN | RCC_AHB2ENR_GPIOBEN);
+  RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
+
+  // 2. Set GPIOA-15 as standard Output Mode (01) for Software Chip Select
+  GPIOA->MODER &= ~GPIO_MODER_MODE15;
+  GPIOA->MODER |= GPIO_MODER_MODE15_0;
+
+  // 3. Set PA15 High immediately (Idle state for MPU-9250 SPI)
+  GPIOA->ODR |= GPIO_ODR_OD15; 
+
+  // 4. Safely clear Port B pins 3, 4, and 5 completely
+  GPIOB->MODER &= ~(GPIO_MODER_MODE3 | GPIO_MODER_MODE4 | GPIO_MODER_MODE5);
+  // Configure PB3, PB4, PB5 into Alternate Function Mode (10)
+  GPIOB->MODER |= (GPIO_MODER_MODE3_1 | GPIO_MODER_MODE4_1 | GPIO_MODER_MODE5_1);
+
+  // 5. Map PB3, PB4, PB5 to AF5 (SPI1) - Explicitly mask and overwrite
+  GPIOB->AFR[0] &= ~(GPIO_AFRL_AFSEL3 | GPIO_AFRL_AFSEL4 | GPIO_AFRL_AFSEL5);
+  GPIOB->AFR[0] |= (5UL << GPIO_AFRL_AFSEL3_Pos) |
+                   (5UL << GPIO_AFRL_AFSEL4_Pos) |
+                   (5UL << GPIO_AFRL_AFSEL5_Pos);
+
+  // 6. Configure the SPI1 Hardware Control Register 1 (CR1)
+  SPI1->CR1 = 0; // Clear register to wipe out default uninitialized states
+  SPI1->CR1 |= SPI_CR1_MSTR;                  // Set STM32 as SPI Bus Master
+  SPI1->CR1 |= (SPI_CR1_BR_0 | SPI_CR1_BR_1); // Baud Rate Prescaler: /16 (5MHz clock)
+  SPI1->CR1 |= SPI_CR1_CPOL;                  // CPOL = 1 (Clock High when idle)
+  SPI1->CR1 |= SPI_CR1_CPHA;                  // CPHA = 1 (Capture data on 2nd clock edge)
+  SPI1->CR1 |= SPI_CR1_SSM;                   // Enable Software Slave Management
+  SPI1->CR1 |= SPI_CR1_SSI;                   // Force internal master token High
+
+  // 7. Configure SPI1 Control Register 2 (CR2)
+  SPI1->CR2 = 0;
+  SPI1->CR2 |= (7UL << SPI_CR2_DS_Pos);       // Set 8-bit data size frame
+  SPI1->CR2 |= SPI_CR2_FRXTH;                 // Force RX FIFO Threshold to 8-bit mode
+
+  // 8. Fire up the SPI1 hardware peripheral
+  SPI1->CR1 |= SPI_CR1_SPE;
+}
+
+void i2c_init(void){
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+    
+    GPIOB->MODER &= ~(GPIO_MODER_MODE6 | GPIO_MODER_MODE7);
+    GPIOB->MODER |= (GPIO_MODER_MODE6_1 | GPIO_MODER_MODE7_1);
+
+    GPIOB->AFR[0] &= ~GPIO_AFRL_AFSEL6; // Clear the 4 bits for Pin 6 (AFSEL6)
+    GPIOB->AFR[0] |= (4UL << GPIO_AFRL_AFSEL6_Pos);
+
+    GPIOB->AFR[0] &= ~GPIO_AFRL_AFSEL7; // Clear the 4 bits for Pin 7 (AFSEL7)
+    GPIOB->AFR[0] |= (4UL << GPIO_AFRL_AFSEL7_Pos);
+
+    GPIOB->OTYPER |= (GPIO_OTYPER_OT6 | GPIO_OTYPER_OT7);
+
+    // 6. Enable the clock for the I2C1 peripheral (attached to APB1 bus)
+    RCC->APB1ENR1 |= RCC_APB1ENR1_I2C1EN;
+
+    // 7. Make sure I2C1 is completely disabled before we change its settings
+    I2C1->CR1 &= ~I2C_CR1_PE; 
+
+    // 8. Set the I2C speed timing to 400 kHz Fast-Mode (Assuming an 80 MHz system clock)
+    I2C1->TIMINGR = 0x90310309; 
+
+    // 9. Turn the I2C1 peripheral ON
+    I2C1->CR1 |= I2C_CR1_PE;
+}
+
+void oled_init(void) {
+    for(volatile uint32_t i = 0; i < 50000; i++);
+    oled_send_cmd(0xAE); // Turn display OFF
+    oled_send_cmd(0x8D); oled_send_cmd(0x14); // Turn Charge Pump ON 
+    oled_send_cmd(0xAF); // Turn display ON
+    oled_send_cmd(0xA4); // Read from RAM
+    print_setting_oled(FAST_BLINK);
+}
+
+void timer_init(void) {
+  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
+
+  // Gear down to 10,000 Hz (10 ticks per millisecond)
+  TIM2->PSC = 8000 - 1; 
+
+  // Configure Channel 1 for PWM Mode 1
+  // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
+  TIM2->CCMR1 &= ~TIM_CCMR1_OC1M;
+  TIM2->CCMR1 |= (6UL << TIM_CCMR1_OC1M_Pos); 
+
+  // Enable the Output on Channel 1 so it can drive PA5
+  TIM2->CCER |= TIM_CCER_CC1E;
+
+  // We keep the interrupt enabled because we will need it 
+  // later for the "Blink Count" feature!
+  TIM2->DIER |= TIM_DIER_UIE;
+  NVIC_EnableIRQ(TIM2_IRQn);
+}
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+  HAL_InitTick(TICK_INT_PRIORITY);
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  /* USER CODE BEGIN 2 */
+  led_init();
+  uart_init();
+  timer_init();
+  i2c_init();
+  oled_init();
+  btn_init();
+  spi_init();
+
+  uint8_t chip_num = mpu_read_reg(0x75);
+
+  if (chip_num == 0x71 || chip_num == 0x70){
+      uart_sendstring("SPI communication successfull!!!!\r\n");
+      mpu_configure();
+  }
+  else {
+      uart_sendstring("SPI communication Error!!!\r\n");
+  }
+
+  console_init();
+  /* USER CODE END 2 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Configure the main internal regulator output voltage
+  */
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+  RCC_OscInitStruct.MSICalibrationValue = 0;
+  RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
+  RCC_OscInitStruct.PLL.PLLM = 1;
+  RCC_OscInitStruct.PLL.PLLN = 40;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
+  RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
+  RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+#ifdef USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

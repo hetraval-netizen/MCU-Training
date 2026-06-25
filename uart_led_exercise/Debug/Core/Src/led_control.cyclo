@@ -1,0 +1,10 @@
+../Core/Src/led_control.c:19:6:toggle_led	1
+../Core/Src/led_control.c:23:6:set_led	2
+../Core/Src/led_control.c:31:6:trigger_error	1
+../Core/Src/led_control.c:42:6:process_error_led	3
+../Core/Src/led_control.c:54:6:TIM2_IRQHandler	7
+../Core/Src/led_control.c:88:6:fast_blink	1
+../Core/Src/led_control.c:102:6:slow_blink	1
+../Core/Src/led_control.c:116:6:pwm_start	3
+../Core/Src/led_control.c:136:6:pwm_animation	1
+../Core/Src/led_control.c:154:6:count	1
