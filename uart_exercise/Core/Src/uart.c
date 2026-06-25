@@ -7,11 +7,6 @@
 #include "uart.h"
 #include "console.h"
 
-#define OPERATING_FREQUENCY 80000000
-#define BAUD_RATE 115200
-
-#define RX_BFR_SIZE 64
-
 /* --- Buffer and Flag Management --- */
 char cmd_buffer[RX_BFR_SIZE];             // Array storing the assembled string
 volatile int cmd_index = 0;               // Track length (volatile: modified inside ISR)

@@ -8,16 +8,17 @@
 #include "uart.h"
 #include "led_control.h"
 
-#define NUM_COMMANDS 6
-
+/* Declare a function handler for parsing commands */
 typedef void (*cmd_handler_t)(char *args);
 
+/* Declare a struct for accessing diffrent handler for various commands */
 typedef struct {
     const char *name;
     cmd_handler_t handler;
     bool is_prefix;
 } cmd_entry_t;
 
+/* Function Definitions */
 void handle_help (char *args);
 void handle_fast (char *args);
 void handle_slow (char *args);
@@ -25,6 +26,7 @@ void handle_breathing (char *args);
 void handle_count (char *args);
 void handle_led_brightness (char *args);
 
+/* command table initialization */
 static const cmd_entry_t cmd_table[] = {
     {"help", handle_help, false},
     {"fast", handle_fast, false},
@@ -34,6 +36,9 @@ static const cmd_entry_t cmd_table[] = {
     {"led brightness ", handle_led_brightness, true}
 };
 
+/*
+ * @brief The API for the parsing of the commands recieved via UART
+*/
 void parse_command (char *cmd) {
     if (cmd[0] == '\0') {
         return;
@@ -55,9 +60,12 @@ void parse_command (char *cmd) {
         }
     }
     uart_sendstring("Error: Unknown command. Type 'help'.\r\n");
-    trigger_error(); 
+    set_error_led(true); 
 }
 
+/*
+ * @brief The handle API for the help command
+ */
 void handle_help (char *args){
     uart_sendstring("\r\nAvailable commands:\r\n"
         "  fast                            - Fast blink\r\n"
@@ -68,24 +76,39 @@ void handle_help (char *args){
         "  help                            - Show this help message\r\n");
 }
 
+/*
+ * @brief The handle API for the fast blink command
+ */
 void handle_fast (char *args){
     led_set_mode(LED_MODE_FAST_BLINK, 0);
 }
 
+/*
+ * @brief The handle API for the slow blink command
+ */
 void handle_slow (char *args){
     led_set_mode(LED_MODE_SLOW_BLINK, 0);
 }
 
+/*
+ * @brief The handle API for the breathing command
+ */
 void handle_breathing (char *args){
     led_set_mode(LED_MODE_BREATHING, 0);
 }
 
+/*
+ * @brief The handle API for the count command
+ */
 void handle_count (char *args){
     char *endptr;
     long target = strtol(args, &endptr, 10);
     led_set_mode(LED_MODE_COUNT, target);
 }
 
+/*
+ * @brief The handle API for the led brightness command
+ */
 void handle_led_brightness (char *args){
     char *endptr;
     long duty = strtol(args, &endptr, 10);

@@ -12,9 +12,13 @@ typedef enum {
     LED_MODE_COUNT         /**< Fixed flashing run loop sequence that auto-terminates */
 } Led_Mode_t;
 
+#define NUM_COMMANDS 6
+#define MIN_ANIMATION_LIMIT 0
+#define MAX_ANIMATION_LIMIT 100
+
 void led_init(void);
-void reset_error_led(void);
-void trigger_error(void);
+void timer_init(void);
+void set_error_led(bool start);
 void led_set_mode(Led_Mode_t mode, int param);
 
 #endif /* SRC_LED_CONTROL_H_ */

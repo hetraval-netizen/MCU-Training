@@ -21,6 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
+
 #include "console.h"
 #include "uart.h"
 #include "led_control.h"
@@ -55,26 +57,6 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void timer_init(void) {
-  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
-
-  // Gear down to 10,000 Hz (10 ticks per millisecond)
-  TIM2->PSC = 8000 - 1; 
-
-  // Configure Channel 1 for PWM Mode 1
-  // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
-  TIM2->CCMR1 &= ~TIM_CCMR1_OC1M;
-  TIM2->CCMR1 |= (6UL << TIM_CCMR1_OC1M_Pos); 
-
-  // Enable the Output on Channel 1 so it can drive PA5
-  TIM2->CCER |= TIM_CCER_CC1E;
-
-  // We keep the interrupt enabled because we will need it 
-  // later for the "Blink Count" feature!
-  TIM2->DIER |= TIM_DIER_UIE;
-  NVIC_EnableIRQ(TIM2_IRQn);
-}
-
 /* USER CODE END 0 */
 
 /**
@@ -105,18 +87,19 @@ int main(void)
 
   /* USER CODE END SysInit */
 
-  /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+  
+  /* Initialize all configured peripherals */
   led_init();
   uart_init();
-  timer_init();
 
+  /* Welcome message for user on uart */
   uart_sendstring("Welcome to the UART Console!\r\n");
   uart_sendstring("Type 'help' for a list of commands.\r\n");
-  uart_sendstring("\r> "); // Print prompt
+  uart_sendstring("\r> ");
 
   while (1) {
-      reset_error_led();
+      set_error_led(false); 
       uart_receive_and_process();
   }
 
