@@ -12,7 +12,15 @@ typedef enum {
     LED_MODE_COUNT         /**< Fixed flashing run loop sequence that auto-terminates */
 } Led_Mode_t;
 
+#define PRESCALE_CLOCK 7999 // Prescale to 8MHz
+#define AUTO_RELOAD_FAST_BLINK 4999
+#define DUTY_CYCLE_FAST_BLINK 2500
+#define AUTO_RELOAD_SLOW_BLINK 15999
+#define DUTY_CYCLE_SLOW_BLINK 8000
+#define AUTO_RELOAD_BREATHING 99
+#define ERR_LED_INDICATION_TIME 1000 // 1 second
 #define NUM_COMMANDS 6
+#define MIN_COUNT_LIMIT 0
 #define MIN_ANIMATION_LIMIT 0
 #define MAX_ANIMATION_LIMIT 100
 

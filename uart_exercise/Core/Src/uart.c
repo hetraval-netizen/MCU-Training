@@ -5,7 +5,7 @@
 
 #include "main.h"
 #include "uart.h"
-#include "console.h"
+#include "cmd.h"
 
 /* --- Buffer and Flag Management --- */
 char cmd_buffer[RX_BFR_SIZE];             // Array storing the assembled string
@@ -69,26 +69,26 @@ void uart_sendstring (char *str) {
 void USART2_IRQHandler (void) {
     /* Check if character received flag (RXNE) is raised */
     if (USART2->ISR & USART_ISR_RXNE) {
-        char current_char = (char)USART2->RDR; // Read raw hardware byte
+        char current_char = (char)USART2->RDR; // Read byte
 
         /* Block new inputs if the previous command is still pending processing */
         if (!cmd_ready) {
             
-            uart_sendchar(current_char); // Interactive CLI: Echo character back
+            uart_sendchar(current_char);
 
             /* Case 1: Carriage Return (Enter Key) - Signal string is ready */
             if (current_char == '\r') {
-                uart_sendstring("\r\n");      // Move terminal down a line
-                cmd_buffer[cmd_index] = '\0'; // Append crucial null terminator
-                cmd_ready = true;             // Set flag to inform the background process
+                uart_sendstring("\r\n");
+                cmd_buffer[cmd_index] = '\0';
+                cmd_ready = true;
             }
             /* Case 2: Backspace Key - Modify index and clean console */
             else if (current_char == '\b') {
                 if (cmd_index > 0) {
                     cmd_index--;
-                    uart_sendstring(" \b");   // Destructive backspace visualization
+                    uart_sendstring(" \b");
                 } else {
-                    uart_sendchar('\a');      // Sound bell if backspacing empty prompt
+                    uart_sendchar('\a');
                 }
             }
             /* Case 3: Character Storage with Overflow Shield */
@@ -97,7 +97,7 @@ void USART2_IRQHandler (void) {
                     cmd_buffer[cmd_index] = current_char;
                     cmd_index++;
                 } else {
-                    uart_sendchar('\a');      // Sound bell if maximum limit reached
+                    uart_sendchar('\a');
                 }
             }
         }
@@ -116,12 +116,12 @@ void uart_receive_and_process(void) {
     /* Act only when the Interrupt Handler signals string completion */
     if (cmd_ready) {
         
-        /* Deliver string directly to your application logic parser */
+        /* Deliver string directly to application logic parser */
         parse_command(cmd_buffer);
 
         /* Refresh command state to capture the next input session */
-        cmd_index = 0;              // Rewind storage index pointer
-        uart_sendstring("\r> ");    // Re-render UI terminal prompt line
-        cmd_ready = false;          // Clear flag LAST to reopen input pipeline
+        cmd_index = 0;
+        uart_sendstring("\r> ");
+        cmd_ready = false;
     }
 }

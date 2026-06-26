@@ -23,7 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
 
-#include "console.h"
+#include "cmd.h"
 #include "uart.h"
 #include "led_control.h"
 /* USER CODE END Includes */

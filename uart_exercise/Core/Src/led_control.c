@@ -33,7 +33,7 @@ void timer_init(void) {
   RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
 
   // Gear down to 10,000 Hz (10 ticks per millisecond)
-  TIM2->PSC = 8000 - 1; 
+  TIM2->PSC = PRESCALE_CLOCK; 
 
   // Configure Channel 1 for PWM Mode 1
   // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
@@ -80,7 +80,7 @@ void set_error_led(bool start) {
         return;
     }
     
-    if (HAL_GetTick() - error_start_time >= 1000)
+    if (HAL_GetTick() - error_start_time >= ERR_LED_INDICATION_TIME)
         GPIOA->ODR &= ~GPIO_ODR_OD8;
 }
 
@@ -93,28 +93,28 @@ void led_set_mode(Led_Mode_t mode, int param) {
     switch (mode) {
         case LED_MODE_FAST_BLINK:
             uart_sendstring("System Indication: Starting Fast Blink...\r\n");
-            TIM2->ARR = 5000 - 1;
-            TIM2->CCR1 = 2500;
+            TIM2->ARR = AUTO_RELOAD_FAST_BLINK;
+            TIM2->CCR1 = DUTY_CYCLE_FAST_BLINK;
             break;
 
         case LED_MODE_SLOW_BLINK:
             uart_sendstring("System Indication: Starting Slow Blink...\r\n");
-            TIM2->ARR = 16000 - 1;
-            TIM2->CCR1 = 8000;
+            TIM2->ARR = AUTO_RELOAD_SLOW_BLINK;
+            TIM2->CCR1 = DUTY_CYCLE_SLOW_BLINK;
             break;
 
         case LED_MODE_PWM:
             if (param < MIN_ANIMATION_LIMIT) param = MIN_ANIMATION_LIMIT;
             if (param > MAX_ANIMATION_LIMIT) param = MAX_ANIMATION_LIMIT;
 
-            uart_sendstring("System Indication: Starting PWM...\r\n");
+            uart_sendstring("System Indication: Starting Led with fix brightness...\r\n");
             TIM2->ARR = MAX_ANIMATION_LIMIT - 1;
             TIM2->CCR1 = param - 1;
             break;
 
         case LED_MODE_BREATHING:
             uart_sendstring("System Indication: Starting Breathing LED...\r\n");
-            TIM2->ARR = 100 - 1;
+            TIM2->ARR = AUTO_RELOAD_BREATHING;
             
             current_anim_duty = 0;
             anim_direction = 1;
@@ -125,8 +125,8 @@ void led_set_mode(Led_Mode_t mode, int param) {
             uart_sendstring("System Indication: Starting Count...\r\n");
             count_value = 0;
             target_blinks = param;
-            TIM2->ARR = 16000 - 1;
-            TIM2->CCR1 = 8000;
+            TIM2->ARR = AUTO_RELOAD_SLOW_BLINK;
+            TIM2->CCR1 = DUTY_CYCLE_SLOW_BLINK;
             is_counting = true;
             break;
 

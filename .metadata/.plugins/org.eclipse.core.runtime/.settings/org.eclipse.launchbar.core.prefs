@@ -5,3 +5,4 @@ configDescList=org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:uart_exercise De
 eclipse.preferences.version=1
 org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:uart_exercise\ Debug/activeLaunchMode=run
 org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:uart_exercise\ Debug/activeLaunchTarget=null\:---
+org.eclipse.cdt.dsf.gdb.gdbRemotedescriptorType\:uart_led_exercise\ Debug\ (1)/activeLaunchMode=run
