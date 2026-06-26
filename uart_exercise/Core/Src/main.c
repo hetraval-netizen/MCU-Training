@@ -57,6 +57,15 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+int __io_putchar(int ch) {
+  if (ch == '\n') {
+      uart_sendchar('\r');
+  }
+  
+  uart_sendchar((char)ch);
+  return ch;
+}
+
 /* USER CODE END 0 */
 
 /**

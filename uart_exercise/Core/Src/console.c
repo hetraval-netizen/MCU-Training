@@ -68,12 +68,12 @@ void parse_command (char *cmd) {
  */
 void handle_help (char *args){
     uart_sendstring("\r\nAvailable commands:\r\n"
+        "  help                            - Show this help message\r\n"
         "  fast                            - Fast blink\r\n"
         "  slow                            - Slow blink\r\n"
-        "  count <Number of Blinks>        - Start counting\r\n"
-        "  led brightness <Led Brightness> - Glow led at a specific brightness\r\n"
         "  breathing                       - Start breathing animation\r\n"
-        "  help                            - Show this help message\r\n");
+        "  count <Number of Blinks>        - Start counting (>= 0)\r\n"
+        "  led brightness <Led Brightness> - Glow led in brightness range (0-100)\r\n");
 }
 
 /*
@@ -103,7 +103,10 @@ void handle_breathing (char *args){
 void handle_count (char *args){
     char *endptr;
     long target = strtol(args, &endptr, 10);
-    led_set_mode(LED_MODE_COUNT, target);
+    if (target != 0 && target > 0)
+        led_set_mode(LED_MODE_COUNT, target);
+    else
+    	uart_sendstring("Out of Bounds\r\n");
 }
 
 /*
@@ -112,5 +115,8 @@ void handle_count (char *args){
 void handle_led_brightness (char *args){
     char *endptr;
     long duty = strtol(args, &endptr, 10);
-    led_set_mode(LED_MODE_PWM, duty);
+    if (duty >= 0 && duty <= 100)
+        led_set_mode(LED_MODE_PWM, duty);
+    else
+    	printf("Out of Bounds\r\n");
 }
