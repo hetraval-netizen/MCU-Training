@@ -8,10 +8,13 @@
 #include "cmd.h"
 
 /* --- Buffer and Flag Management --- */
-char cmd_buffer[RX_BFR_SIZE];             // Array storing the assembled string
-volatile int cmd_index = 0;               // Track length (volatile: modified inside ISR)
-volatile bool cmd_ready = false;          // Flag set when '\r' is detected inside ISR
 
+volatile char rx_buffer[RX_BFR_SIZE];
+volatile int head = 0;
+volatile int tail = 0;
+
+static char cmd_buffer[RX_BFR_SIZE];
+static int cmd_index = 0;
 /**
  * @brief  Initializes USART2 peripheral and its associated GPIO pins.
  */
@@ -69,38 +72,9 @@ void uart_sendstring (char *str) {
 void USART2_IRQHandler (void) {
     /* Check if character received flag (RXNE) is raised */
     if (USART2->ISR & USART_ISR_RXNE) {
-        char current_char = (char)USART2->RDR; // Read byte
 
-        /* Block new inputs if the previous command is still pending processing */
-        if (!cmd_ready) {
-            
-            uart_sendchar(current_char);
-
-            /* Case 1: Carriage Return (Enter Key) - Signal string is ready */
-            if (current_char == '\r') {
-                uart_sendstring("\r\n");
-                cmd_buffer[cmd_index] = '\0';
-                cmd_ready = true;
-            }
-            /* Case 2: Backspace Key - Modify index and clean console */
-            else if (current_char == '\b') {
-                if (cmd_index > 0) {
-                    cmd_index--;
-                    uart_sendstring(" \b");
-                } else {
-                    uart_sendchar('\a');
-                }
-            }
-            /* Case 3: Character Storage with Overflow Shield */
-            else {
-                if (cmd_index < (RX_BFR_SIZE - 1)) {
-                    cmd_buffer[cmd_index] = current_char;
-                    cmd_index++;
-                } else {
-                    uart_sendchar('\a');
-                }
-            }
-        }
+        rx_buffer[head] = USART2->RDR; // Read received byte
+        head = (head + 1) % RX_BFR_SIZE; // Move head index
     }
 
     /* Clear fault statuses to keep interrupt pipeline healthy */
@@ -113,15 +87,38 @@ void USART2_IRQHandler (void) {
  * @brief  Polling function deployed from the main while loop.
  */
 void uart_receive_and_process(void) {
-    /* Act only when the Interrupt Handler signals string completion */
-    if (cmd_ready) {
-        
-        /* Deliver string directly to application logic parser */
-        parse_command(cmd_buffer);
+    // Check if there is data in the circular buffer
+    if (head != tail) {
+        char current_char = rx_buffer[tail];
+        tail = (tail + 1) % RX_BFR_SIZE; // Move tail index
 
-        /* Refresh command state to capture the next input session */
-        cmd_index = 0;
-        uart_sendstring("\r> ");
-        cmd_ready = false;
+        uart_sendchar(current_char); // Echo back the received character
+
+        if (current_char == '\r') {
+            uart_sendstring("\r\n"); // Move to new line after Enter key
+            cmd_buffer[cmd_index] = '\0'; // Null-terminate the command string
+            parse_command(cmd_buffer);
+            uart_sendstring("\r> "); // Print a fresh prompt
+            cmd_index = 0;
+        }
+        else if (current_char == '\b') {
+            if (cmd_index > 0) {
+                cmd_index--;
+                uart_sendstring(" \b");
+            }
+            else {
+                uart_sendchar('\a'); // Beep if backspace is pressed at the start
+            }
+        }
+        else {
+            // Prevent buffer overflow if user types too many characters without pressing Enter
+            if (cmd_index < (RX_BFR_SIZE - 1)) {
+                cmd_buffer[cmd_index] = current_char; // Store character
+                cmd_index++;
+            }
+            else {
+                uart_sendchar('\a'); // Beep indicating buffer full
+            }
+        }
     }
 }

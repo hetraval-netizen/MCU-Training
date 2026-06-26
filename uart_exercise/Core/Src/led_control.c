@@ -27,9 +27,9 @@ static void led_reset_timer_state(void) {
 }
 
 /*
- * @brief This API will be initalising the timer for PWM
+ * @brief This API will be initalising the timer 2 for PWM configuration
  */
-void timer_init(void) {
+void pwm_tim2_init(void) {
   RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
 
   // Gear down to 10,000 Hz (10 ticks per millisecond)
@@ -50,7 +50,7 @@ void timer_init(void) {
 /**
  * @brief  Initializes GPIOA pins for Status (PA5) and Error (PA8) LEDs.
  */
-void led_init(void){
+void led_control_init(void){
     /* Supply power clock to GPIOA port peripheral */
     RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN; 
     
@@ -66,7 +66,7 @@ void led_init(void){
     GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL5;
     GPIOA->AFR[0] |= (1UL << GPIO_AFRL_AFSEL5_Pos);
 
-    timer_init();
+    pwm_tim2_init();
 }
 
 /*
@@ -84,21 +84,44 @@ void set_error_led(bool start) {
         GPIOA->ODR &= ~GPIO_ODR_OD8;
 }
 
+/*
+ * @brief This API will be returning the strings based on the enum values
+ */
+static char* led_mode_enum_to_str(Led_Mode_t mode) {
+    switch (mode) {
+        case LED_MODE_FAST_BLINK:
+            return "Fast Blink";
+        case LED_MODE_SLOW_BLINK:
+            return "Slow Blink";
+        case LED_MODE_PWM:
+            return "PWM Fixed";
+        case LED_MODE_BREATHING:
+            return "Breathing";
+        case LED_MODE_COUNT:
+            return "Count Blinks";
+        default:
+            return "Unknown Mode";
+    }
+}
+
 /**
  * @brief  Centralized API to control status LED behavioral operational configurations.
  */
 void led_set_mode(Led_Mode_t mode, int param) {
-    led_reset_timer_state();
+    
+    char *led_mode = led_mode_enum_to_str(mode);
+    printf("current System Indication: %s\n\r", led_mode);
+
+    if (mode < LED_MODE_MAX_CNT)
+    	led_reset_timer_state();
 
     switch (mode) {
         case LED_MODE_FAST_BLINK:
-            uart_sendstring("System Indication: Starting Fast Blink...\r\n");
             TIM2->ARR = AUTO_RELOAD_FAST_BLINK;
             TIM2->CCR1 = DUTY_CYCLE_FAST_BLINK;
             break;
 
         case LED_MODE_SLOW_BLINK:
-            uart_sendstring("System Indication: Starting Slow Blink...\r\n");
             TIM2->ARR = AUTO_RELOAD_SLOW_BLINK;
             TIM2->CCR1 = DUTY_CYCLE_SLOW_BLINK;
             break;
@@ -107,13 +130,11 @@ void led_set_mode(Led_Mode_t mode, int param) {
             if (param < MIN_ANIMATION_LIMIT) param = MIN_ANIMATION_LIMIT;
             if (param > MAX_ANIMATION_LIMIT) param = MAX_ANIMATION_LIMIT;
 
-            uart_sendstring("System Indication: Starting Led with fix brightness...\r\n");
             TIM2->ARR = MAX_ANIMATION_LIMIT - 1;
             TIM2->CCR1 = param - 1;
             break;
 
         case LED_MODE_BREATHING:
-            uart_sendstring("System Indication: Starting Breathing LED...\r\n");
             TIM2->ARR = AUTO_RELOAD_BREATHING;
             
             current_anim_duty = 0;
@@ -122,7 +143,6 @@ void led_set_mode(Led_Mode_t mode, int param) {
             break;
 
         case LED_MODE_COUNT:
-            uart_sendstring("System Indication: Starting Count...\r\n");
             count_value = 0;
             target_blinks = param;
             TIM2->ARR = AUTO_RELOAD_SLOW_BLINK;
@@ -131,7 +151,8 @@ void led_set_mode(Led_Mode_t mode, int param) {
             break;
 
         default:
-            uart_sendstring("System Error: Invalid LED Mode Selected\r\n");
+            printf("System Error: Invalid LED Mode Selected\r\n");
+            set_error_led(true);
             return;
     }
 
@@ -151,11 +172,11 @@ void TIM2_IRQHandler(void) {
 
             if (current_anim_duty >= MAX_ANIMATION_LIMIT) {
                 current_anim_duty = MAX_ANIMATION_LIMIT; 
-                anim_direction = -1; 
+                anim_direction = ANIM_DIRECTION_NEGATIVE; 
             } 
             else if (current_anim_duty <= 0) {
                 current_anim_duty = 0; 
-                anim_direction = 1;  
+                anim_direction = ANIM_DIRECTION_POSITIVE;  
             }
         }
         else if (is_counting) {
@@ -164,8 +185,7 @@ void TIM2_IRQHandler(void) {
             if (count_value >= target_blinks) {
                 is_counting = false;       
                 TIM2->CR1 &= ~TIM_CR1_CEN; 
-                TIM2->CCR1 = 0;            
-                uart_sendstring("System Indication: Count Complete!\r\n");
+                TIM2->CCR1 = 0;
             }
         }
     }

@@ -99,7 +99,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   
   /* Initialize all configured peripherals */
-  led_init();
+  led_control_init();
   uart_init();
 
   /* Welcome message for user on uart */
