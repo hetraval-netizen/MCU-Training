@@ -1,0 +1,61 @@
+# ==========================================
+# STM32CubeIDE / Eclipse Metadata & Outputs
+# ==========================================
+# Ignore local IDE layouts and machine-specific settings
+.settings/
+.metadata/
+*.launch
+
+# Ignore the build directories completely (Debug, Release, etc.)
+[Dd]ebug/
+[Rr]elease/
+
+# ==========================================
+# Keil uVision Metadata & Outputs
+# ==========================================
+# Ignore compiler outputs, listings, and temporary debugger files
+*.lst
+*.obj
+*.crf
+*.lnp
+*.d
+*.axf
+*.htm
+*.dep
+*.build_log.htm
+*.ini
+build/
+Listings/
+Objects/
+*.uvguix.*
+*.uv2.bak
+*.uvopt.bak
+
+# ==========================================
+# IAR Embedded Workbench Metadata & Outputs
+# ==========================================
+*.dep
+*.ewt
+*.ewd.bak
+Debug/
+Release/
+settings/
+
+# ==========================================
+# Compiled Target Binaries (All Toolchains)
+# ==========================================
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.su
+
+# ==========================================
+# Operating System & Misc Files
+# ==========================================
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+
