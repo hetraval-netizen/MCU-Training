@@ -30,21 +30,21 @@ static void led_reset_timer_state(void) {
  * @brief This API will be initalising the timer 2 for PWM configuration
  */
 void pwm_tim2_init(void) {
-  RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN; 
+    // Enable the clock for Timer 2
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;
 
-  // Gear down to 10,000 Hz (10 ticks per millisecond)
-  TIM2->PSC = PRESCALE_CLOCK; 
+    // Gear down to 10,000 Hz (10 ticks per millisecond)
+    TIM2->PSC = PRESCALE_CLOCK;
 
-  // Configure Channel 1 for PWM Mode 1
-  // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
-  TIM2->CCMR1 &= ~TIM_CCMR1_OC1M;
-  TIM2->CCMR1 |= (6UL << TIM_CCMR1_OC1M_Pos); 
+    // Configure Channel 1 for PWM Mode 1
+    // (Output goes HIGH when counter < CCR1, and LOW when counter >= CCR1)
+    TIM2->CCMR1 &= ~TIM_CCMR1_OC1M;
+    TIM2->CCMR1 |= (6UL << TIM_CCMR1_OC1M_Pos);
 
-  // Enable the Output on Channel 1 so it can drive PA5
-  TIM2->CCER |= TIM_CCER_CC1E;
-
-  TIM2->DIER |= TIM_DIER_UIE;
-  NVIC_EnableIRQ(TIM2_IRQn);
+    // Enable the Output on Channel 1 so it can drive PA5
+    TIM2->CCER |= TIM_CCER_CC1E;
+    TIM2->DIER |= TIM_DIER_UIE;
+    NVIC_EnableIRQ(TIM2_IRQn);
 }
 
 /**
@@ -93,7 +93,7 @@ static char* led_mode_enum_to_str(Led_Mode_t mode) {
             return "Fast Blink";
         case LED_MODE_SLOW_BLINK:
             return "Slow Blink";
-        case LED_MODE_PWM:
+        case LED_MODE_FIXED_BRIGHTNESS:
             return "PWM Fixed";
         case LED_MODE_BREATHING:
             return "Breathing";
@@ -108,16 +108,18 @@ static char* led_mode_enum_to_str(Led_Mode_t mode) {
  * @brief  Centralized API to control status LED behavioral operational configurations.
  */
 void led_set_mode(Led_Mode_t mode, int param) {
-    
+    /* Check if the mode is valid*/
+    if (mode > LED_MODE_MAX_CNT){
+        printf("System Error: Invalid LED Mode Selected\r\n");
+        set_error_led(true);
+        return;
+    }
+
+    /* Print the recieved led state */
     char *led_mode = led_mode_enum_to_str(mode);
     printf("current System Indication: %s\n\r", led_mode);
 
-    if (mode < LED_MODE_MAX_CNT){
-        printf("System Error: Invalid LED Mode Selected\r\n");
-        set_error_led(true);
-    	led_reset_timer_state();
-        return;
-    }
+    led_reset_timer_state(); // Clear the previous state for timer for new settings
 
     switch (mode) {
         case LED_MODE_FAST_BLINK:
@@ -130,17 +132,13 @@ void led_set_mode(Led_Mode_t mode, int param) {
             TIM2->CCR1 = DUTY_CYCLE_SLOW_BLINK;
             break;
 
-        case LED_MODE_PWM:
-            if (param < MIN_ANIMATION_LIMIT) param = MIN_ANIMATION_LIMIT;
-            if (param > MAX_ANIMATION_LIMIT) param = MAX_ANIMATION_LIMIT;
-
-            TIM2->ARR = MAX_ANIMATION_LIMIT - 1;
+        case LED_MODE_FIXED_BRIGHTNESS:
+            TIM2->ARR = MAX_BRIGHTNESS_LIMIT - 1;
             TIM2->CCR1 = param - 1;
             break;
 
         case LED_MODE_BREATHING:
             TIM2->ARR = AUTO_RELOAD_BREATHING;
-            
             current_anim_duty = 0;
             anim_direction = 1;
             is_animating = true;
@@ -174,8 +172,8 @@ void TIM2_IRQHandler(void) {
             current_anim_duty += anim_direction; 
             TIM2->CCR1 = current_anim_duty;      
 
-            if (current_anim_duty >= MAX_ANIMATION_LIMIT) {
-                current_anim_duty = MAX_ANIMATION_LIMIT; 
+            if (current_anim_duty >= MAX_BRIGHTNESS_LIMIT) {
+                current_anim_duty = MAX_BRIGHTNESS_LIMIT;
                 anim_direction = ANIM_DIRECTION_NEGATIVE; 
             } 
             else if (current_anim_duty <= 0) {

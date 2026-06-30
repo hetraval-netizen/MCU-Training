@@ -19,38 +19,40 @@ static int cmd_index = 0;
  * @brief  Initializes USART2 peripheral and its associated GPIO pins.
  */
 void uart_init(void){
-    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN; 
+    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN; // Enable clock for USART 2
 
+    /* Set the mode for the GPIO pins as alternate function for UART TX/RX */
     GPIOA->MODER &= ~GPIO_MODER_MODE2;      
     GPIOA->MODER |= GPIO_MODER_MODE2_1;     
 
     GPIOA->MODER &= ~GPIO_MODER_MODE3;      
     GPIOA->MODER |= GPIO_MODER_MODE3_1;     
 
+    /* Set the Alternate function register for the UART configuration*/
     GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL2; 
     GPIOA->AFR[0] |= (7UL << GPIO_AFRL_AFSEL2_Pos); 
 
     GPIOA->AFR[0] &= ~GPIO_AFRL_AFSEL3; 
     GPIOA->AFR[0] |= (7UL << GPIO_AFRL_AFSEL3_Pos);
 
-    USART2->CR1 = 0;
-    USART2->BRR = OPERATING_FREQUENCY / BAUD_RATE;
+    USART2->CR1 = 0; // Reset the Control register
+    USART2->BRR = OPERATING_FREQUENCY / BAUD_RATE; // Configure the Baud rate as 115200
 
+    /* Configure the Control register for the Transit and recieve*/
     USART2->CR1 |= USART_CR1_RXNEIE; 
     USART2->CR1 |= USART_CR1_TE;     
     USART2->CR1 |= USART_CR1_RE;     
 
-    NVIC_EnableIRQ(USART2_IRQn);
+    NVIC_EnableIRQ(USART2_IRQn); // Register the Intrupt
 
-    USART2->CR1 |= USART_CR1_UE;     
+    USART2->CR1 |= USART_CR1_UE; // Enable Uart
 }
 
 /**
  * @brief  Transmits a single character over UART2.
  */
 void uart_sendchar (char c) {
-    while (!(USART2->ISR & (1UL << 7))) {
-    }
+    while (!(USART2->ISR & (1UL << 7))) {}
     USART2->TDR = c;
 }
 
@@ -72,7 +74,6 @@ void uart_sendstring (char *str) {
 void USART2_IRQHandler (void) {
     /* Check if character received flag (RXNE) is raised */
     if (USART2->ISR & USART_ISR_RXNE) {
-
         rx_buffer[head] = USART2->RDR; // Read received byte
         head = (head + 1) % RX_BFR_SIZE; // Move head index
     }

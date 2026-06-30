@@ -106,7 +106,7 @@ void handle_count (char *args){
     if (target > MIN_COUNT_LIMIT)
         led_set_mode(LED_MODE_COUNT, target);
     else
-    	uart_sendstring("Out of Bounds!!\r\n");
+        printf("Out of Bounds!!\r\n");
 }
 
 /*
@@ -115,8 +115,8 @@ void handle_count (char *args){
 void handle_led_brightness (char *args){
     char *endptr;
     long duty = strtol(args, &endptr, 10);
-    if (duty >= MIN_ANIMATION_LIMIT && duty <= MAX_ANIMATION_LIMIT)
-        led_set_mode(LED_MODE_PWM, duty);
+    if (duty >= MIN_BRIGHTNESS_LIMIT && duty <= MAX_BRIGHTNESS_LIMIT)
+        led_set_mode(LED_MODE_FIXED_BRIGHTNESS, duty);
     else
     	printf("Out of Bounds!!\r\n");
 }
