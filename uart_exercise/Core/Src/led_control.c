@@ -112,8 +112,12 @@ void led_set_mode(Led_Mode_t mode, int param) {
     char *led_mode = led_mode_enum_to_str(mode);
     printf("current System Indication: %s\n\r", led_mode);
 
-    if (mode < LED_MODE_MAX_CNT)
+    if (mode < LED_MODE_MAX_CNT){
+        printf("System Error: Invalid LED Mode Selected\r\n");
+        set_error_led(true);
     	led_reset_timer_state();
+        return;
+    }
 
     switch (mode) {
         case LED_MODE_FAST_BLINK:
