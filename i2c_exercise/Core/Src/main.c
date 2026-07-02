@@ -22,10 +22,14 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
+#include <stdio.h>
 
 #include "cmd.h"
 #include "uart.h"
 #include "led_control.h"
+#include "i2c_peripheral.h"
+#include "display_manager.h"
+#include "u8g2.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +70,8 @@ int __io_putchar(int ch) {
     return ch;
 }
 
+u8g2_t u8g2;
+
 /* USER CODE END 0 */
 
 /**
@@ -101,11 +107,12 @@ int main(void)
     /* Initialize all configured peripherals */
     led_control_init();
     uart_init();
+    i2c_hardware_init();
 
-    /* Welcome message for user on uart */
-    uart_sendstring("Welcome to the UART Console!\r\n");
-    uart_sendstring("Type 'help' for a list of commands.\r\n");
-    uart_sendstring("\r> ");
+    /* Bring up and initialize the display interface */
+//    printf("Start the display manager\n\r");
+//    display_manager_init();
+//    uart_sendstring("Welcome to the UART Console!\r\n");
 
     while (1) {
         set_error_led(false); 
