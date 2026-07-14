@@ -9,7 +9,7 @@
 extern u8g2_t u8g2; // Extern variable for using the u8g2 library
 
 /* The names for all Main menu options */
-char *main_menu[] = {
+char *main_menu_labels[] = {
     "Fast Blink",
     "Slow Blink",
     "Breathing",
@@ -17,14 +17,14 @@ char *main_menu[] = {
 };
 
 /* The names for all Blink menu options */
-char *blink_menu[] = {
+char *blink_menu_labels[] = {
     "Contineous",
     "Fix count"
 };
 
 /* Static global variables to manage the menu switches and current settings */
-static unsigned int current_main_menu_setting = 0;
-static unsigned int current_blink_menu_setting = 0; 
+static unsigned int current_main_menu_option = 0;
+static unsigned int current_blink_menu_option = 0; 
 static unsigned int current_blink_count = 0;
 static unsigned int current_led_brightness = 0; 
 
@@ -96,19 +96,19 @@ void oled_print_menu (display_state_t menu_type) {
     printf("Current Menu type: %d\n", menu_type);
 
     unsigned int total_menu_options = 0;
-    char **current_menu_options = NULL;
+    char **current_menu_labels = NULL;
     unsigned int current_setting = 0;
     switch (menu_type) {
         case MAIN_MENU:
             total_menu_options = MAIN_MENU_TOTAL_COUNT;
-            current_menu_options = main_menu;
-            current_setting = current_main_menu_setting;
+            current_menu_labels = main_menu_labels;
+            current_setting = current_main_menu_option;
             break;
 
         case BLINK_MENU:
             total_menu_options = BLINK_MENU_TOTAL_COUNT;
-            current_menu_options = blink_menu;
-            current_setting = current_blink_menu_setting;
+            current_menu_labels = blink_menu_labels;
+            current_setting = current_blink_menu_option;
             break;
 
         default:
@@ -126,11 +126,11 @@ void oled_print_menu (display_state_t menu_type) {
             u8g2_SetDrawColor(&u8g2, 1);
             u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
             u8g2_SetDrawColor(&u8g2, 0);
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_options[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_labels[menu_ptr]);
             u8g2_SetDrawColor(&u8g2, 1);
         }
         else {
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_options[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_labels[menu_ptr]);
         }
         u8g2_SendBuffer(&u8g2);
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
@@ -199,18 +199,18 @@ void up_event_handler() {
     printf ("up event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
-            if (current_main_menu_setting == FAST_BLINK)
+            if (current_main_menu_option == FAST_BLINK)
                 return;
             
-            current_main_menu_setting--;
+            current_main_menu_option--;
             oled_print_menu(current_state);
             break;
 
         case BLINK_MENU:
-            if (current_blink_menu_setting == CONTINEOUS)
+            if (current_blink_menu_option == CONTINEOUS)
                 return;
 
-            current_blink_menu_setting--;
+            current_blink_menu_option--;
             oled_print_menu(current_state);
             break;
         
@@ -240,18 +240,18 @@ void down_event_handler() {
     printf ("down event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
-            if (current_main_menu_setting == STATIC_LED)
+            if (current_main_menu_option == STATIC_LED)
                 return;
             
-            current_main_menu_setting++;
+            current_main_menu_option++;
             oled_print_menu(current_state);
             break;
 
         case BLINK_MENU:
-            if (current_blink_menu_setting == FIX_COUNT)
+            if (current_blink_menu_option == FIX_COUNT)
                 return;
 
-            current_blink_menu_setting++;
+            current_blink_menu_option++;
             oled_print_menu(current_state);
             break;
         
@@ -284,7 +284,7 @@ void enter_event_handler() {
     printf ("Enter event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
-            switch (current_main_menu_setting) {
+            switch (current_main_menu_option) {
                 case FAST_BLINK:
                     current_state = BLINK_MENU;
                     oled_print_menu(current_state);
@@ -312,9 +312,9 @@ void enter_event_handler() {
             break;
         
         case BLINK_MENU:
-            switch (current_blink_menu_setting) {
+            switch (current_blink_menu_option) {
                 case CONTINEOUS:
-                    if (current_main_menu_setting == FAST_BLINK)
+                    if (current_main_menu_option == FAST_BLINK)
                         led_set_mode(LED_MODE_FAST_BLINK, 0);
                     else
                         led_set_mode(LED_MODE_SLOW_BLINK, 0);
@@ -322,14 +322,14 @@ void enter_event_handler() {
 
                 case FIX_COUNT:
                     current_state = COUNT;
-                    current_blink_count = INITIAL_COUNT_VALUE;
+                    current_blink_count = MIN_COUNT_LIMIT;
                     oled_print_count_number(current_blink_count);
                     break;
             }
             break;
 
         case COUNT:
-            if (current_main_menu_setting == FAST_BLINK)
+            if (current_main_menu_option == FAST_BLINK)
                 led_set_mode(LED_MODE_COUNT_FAST, current_blink_count);
             else
                 led_set_mode(LED_MODE_COUNT_SLOW, current_blink_count);

@@ -114,7 +114,8 @@ int main(void)
     uart_sendstring("Welcome to the UART Console!\r\n");
 
     while (1) {
-        set_error_led(false); 
+        set_error_led(false);
+        button_process_events();
         uart_receive_and_process();
     }
 
