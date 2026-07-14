@@ -322,7 +322,7 @@ void enter_event_handler() {
 
                 case FIX_COUNT:
                     current_state = COUNT;
-                    current_blink_count = 1;
+                    current_blink_count = INITIAL_COUNT_VALUE;
                     oled_print_count_number(current_blink_count);
                     break;
             }
