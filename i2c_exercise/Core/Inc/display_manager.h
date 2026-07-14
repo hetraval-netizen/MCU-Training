@@ -4,6 +4,7 @@
 #include "main.h"
 #include "u8g2.h"
 
+/* Enum for the main menu options */
 typedef enum {
     FAST_BLINK,
     SLOW_BLINK,
@@ -12,12 +13,14 @@ typedef enum {
     MAIN_MENU_TOTAL_COUNT
 } main_menu_t;
 
+/* Enum for the blink menu options */
 typedef enum {
     CONTINEOUS,
     FIX_COUNT,
     BLINK_MENU_TOTAL_COUNT
 } blink_menu_t;
 
+/* Enum for the display states handling */
 typedef enum {
     MAIN_MENU,
     BLINK_MENU,
@@ -26,6 +29,7 @@ typedef enum {
     TOTAL_MENU_COUNT
 } display_state_t;
 
+/* Enum for the various button options */
 typedef enum {
     BACK,
     UP,
@@ -34,6 +38,18 @@ typedef enum {
     TOTAL_BTN_COUNT
 } button_t;
 
+#define OLED_DISPLAY_BOX_HEIGHT 14
+#define OLED_DISPLAY_INIT_BOX_POS 10
+#define OLED_DISPLAY_PIXEL_WIDTH 128
+#define OLED_DISPLAY_STR_INIT_X_AXIS 4
+#define OLED_DISPLAY_STR_INIT_Y_AXIS 21
+#define OLED_DISPLAY_STR_STEP_SIZE 13 
+#define OLED_DISPLAY_BRIGHTNESS_STEP 5
+#define OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS 10
+#define OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR 25
+#define OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR 1.24
+
+/* Definitions for various files usage */
 void back_event_handler();
 void up_event_handler();
 void down_event_handler();

@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <string.h>
 
-extern u8g2_t u8g2;
+extern u8g2_t u8g2; // Extern variable for using the u8g2 library
 
+/* The names for all Main menu options */
 char *main_menu[] = {
     "Fast Blink",
     "Slow Blink",
@@ -15,31 +16,31 @@ char *main_menu[] = {
     "Static LED",
 };
 
+/* The names for all Blink menu options */
 char *blink_menu[] = {
     "Contineous",
     "Fix count"
 };
 
+/* Static global variables to manage the menu switches and current settings */
 static unsigned int current_main_menu_setting = 0;
-static unsigned int current_blink_menu_setting = 0;
+static unsigned int current_blink_menu_setting = 0; 
 static unsigned int current_blink_count = 0;
-static unsigned int current_led_brightness = 0;
+static unsigned int current_led_brightness = 0; 
 
 display_state_t current_state = MAIN_MENU;
 
-void set_main_menu_setting (unsigned int setting) {
-    current_main_menu_setting = setting;
-}
-
-void set_blink_menu_setting (unsigned int setting) {
-    current_blink_menu_setting = setting;
-}
-
+/* 
+ * @brief API to Clear the oled display 
+ */
 void clear_display(){
     u8g2_ClearDisplay(&u8g2);
     u8g2_ClearBuffer(&u8g2);
 }
 
+/*
+ * @brief delay API callback config for the u8g2 library
+ */
 uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
     switch(msg) {
         case U8X8_MSG_DELAY_MILLI:
@@ -51,6 +52,9 @@ uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, vo
     return 1;
 }
 
+/*
+ * @brief Byte API callback config for the u8g2 library for various byte related ops
+ */
 uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
     static uint8_t buffer[32]; /* U8g2 never sends more than 32 bytes per transfer */
     static uint8_t buf_index;
@@ -85,6 +89,9 @@ uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
     return 1;
 }
 
+/*
+ * @brief The API to print the desired menu type on the oled display
+ */
 void oled_print_menu (display_state_t menu_type) {
     printf("Current Menu type: %d\n", menu_type);
 
@@ -110,14 +117,14 @@ void oled_print_menu (display_state_t menu_type) {
     }
 
     clear_display();
-    unsigned int x_axis = 4;
-    unsigned int y_axis = 21;
-    unsigned int current_box_pos = 10;
+    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
+    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
+    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
     for (int menu_ptr = 0; menu_ptr < total_menu_options; menu_ptr++) {
         if (menu_ptr == current_setting) {
             u8g2_SetDrawColor(&u8g2, 1);
-            u8g2_DrawBox(&u8g2, 0, current_box_pos, 128, 14);
+            u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
             u8g2_SetDrawColor(&u8g2, 0);
             u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_options[menu_ptr]);
             u8g2_SetDrawColor(&u8g2, 1);
@@ -126,30 +133,39 @@ void oled_print_menu (display_state_t menu_type) {
             u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_options[menu_ptr]);
         }
         u8g2_SendBuffer(&u8g2);
-        y_axis += 13;
-        current_box_pos += 13;
+        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
+        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
     }
 }
 
+/*
+ * @brief The API to print the led brightness bar on the oled display
+ */
 void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
 
-    float brightness_level_oled_display = brightness_level * 1.24;
-    u8g2_DrawStr(&u8g2, 10, 21, "Brightness level <>");
-    u8g2_DrawBox(&u8g2, 0, 25, brightness_level_oled_display, 14);
+    float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+    u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, "Brightness level <>");
+    u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
     u8g2_SendBuffer(&u8g2);
 }
 
+/*
+ * @brief The API to print the desired counts for the display
+ */
 void oled_print_count_number (int count) {
     clear_display();
 
     char temp_str[32];
     snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
     
-    u8g2_DrawStr(&u8g2, 10, 21, temp_str);
+    u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
     u8g2_SendBuffer(&u8g2);
 }
 
+/*
+ * @brief The event handler for the back button pressed
+ */
 void back_event_handler() {
     printf ("back event handler state: %d\n", current_state);
     if (current_state == MAIN_MENU)
@@ -176,6 +192,9 @@ void back_event_handler() {
     }
 }
 
+/*
+ * @brief The event handler for the up button pressed
+ */
 void up_event_handler() {
     printf ("up event handler state: %d\n", current_state);
     switch (current_state) {
@@ -204,7 +223,7 @@ void up_event_handler() {
             if (current_led_brightness == MAX_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness += 5;
+            current_led_brightness += OLED_DISPLAY_BRIGHTNESS_STEP;
             oled_print_static_led_brightness(current_led_brightness);
             led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
             break;
@@ -214,6 +233,9 @@ void up_event_handler() {
     }
 }
 
+/*
+ * @brief The event handler for the down button pressed
+ */
 void down_event_handler() {
     printf ("down event handler state: %d\n", current_state);
     switch (current_state) {
@@ -245,7 +267,7 @@ void down_event_handler() {
             if (current_led_brightness == MIN_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness -= 5;
+            current_led_brightness -= OLED_DISPLAY_BRIGHTNESS_STEP;
             oled_print_static_led_brightness(current_led_brightness);
             led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
             break;
@@ -255,6 +277,9 @@ void down_event_handler() {
     }
 }
 
+/*
+ * @brief The event handler for the Enter button pressed
+ */
 void enter_event_handler() {
     printf ("Enter event handler state: %d\n", current_state);
     switch (current_state) {
@@ -315,6 +340,9 @@ void enter_event_handler() {
     }
 }
 
+/*
+ * @brief The initialization code for the ssd1306 for using the u8g2 library
+ */
 void display_manager_init(void) {
     u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8g2_byte_hw_i2c_stm32, u8g2_gpio_and_delay_stm32);
     u8g2_InitDisplay(&u8g2);

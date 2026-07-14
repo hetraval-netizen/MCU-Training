@@ -110,9 +110,6 @@ int main(void)
     uart_init();
     i2c_hardware_init();
     btn_init();
-
-    /* Bring up and initialize the display interface */
-    printf("Start the display manager\n\r");
 	  display_manager_init();
     uart_sendstring("Welcome to the UART Console!\r\n");
 
