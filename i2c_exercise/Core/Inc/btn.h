@@ -2,7 +2,7 @@
 #define SRC_BTN_H_
 
 /* Debounce interval in milliseconds */
-#define DEBOUNCE_DELAY_MS 200
+#define DEBOUNCE_DELAY_MS 20
 
 void btn_init(void);
 

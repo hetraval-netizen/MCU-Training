@@ -6,12 +6,6 @@
 #include "main.h"
 #include "display_manager.h"
 
-/* Global static variables to track the last time each button event was processed */
-static uint32_t last_back_tick  = 0;
-static uint32_t last_down_tick  = 0;
-static uint32_t last_up_tick    = 0;
-static uint32_t last_enter_tick = 0;
-
 /*
  * @brief The API to initialize all the required push buttons
  */
@@ -62,14 +56,18 @@ static uint32_t last_enter_tick = 0;
  * @brief Private Intrupt handler dedicated exclusively to PA0
 */ 
 void EXTI0_IRQHandler(void) {
+    static volatile uint32_t down_press_time = 0; 
     uint32_t current_tick = HAL_GetTick();
 
     if (EXTI->PR1 & EXTI_PR1_PIF0) {
         EXTI->PR1 = EXTI_PR1_PIF0; // Clear hardware flag
         
-        if ((current_tick - last_down_tick) > DEBOUNCE_DELAY_MS) {
-            last_down_tick = current_tick;
-            down_event_handler();
+        if ((GPIOA->IDR & GPIO_PIN_0) == 0) {
+            down_press_time = current_tick;
+        }
+        else {
+            if ((current_tick - down_press_time) >= DEBOUNCE_DELAY_MS)
+                down_event_handler();
         }
     }
 }
@@ -78,14 +76,18 @@ void EXTI0_IRQHandler(void) {
  * @brief Private Intrupt handler dedicated exclusively to PA9
 */ 
 void EXTI9_5_IRQHandler(void) {
+    static volatile uint32_t back_press_time = 0;
     uint32_t current_tick = HAL_GetTick();
 
     if (EXTI->PR1 & EXTI_PR1_PIF9) {
         EXTI->PR1 = EXTI_PR1_PIF9; // Clear flag
         
-        if ((current_tick - last_back_tick) > DEBOUNCE_DELAY_MS) {
-            last_back_tick = current_tick;
-            back_event_handler();
+        if ((GPIOA->IDR & GPIO_PIN_9) == 0) {
+            back_press_time = current_tick;
+        }
+        else {
+            if ((current_tick - back_press_time) >= DEBOUNCE_DELAY_MS)
+                back_event_handler();
         }
     }
 }
@@ -94,15 +96,20 @@ void EXTI9_5_IRQHandler(void) {
  * @brief Private Intrupt handler dedicated exclusively to PA10 and PA12
 */ 
 void EXTI15_10_IRQHandler(void) {
+    static volatile uint32_t up_press_time = 0;
+    static volatile uint32_t enter_press_time = 0;
     uint32_t current_tick = HAL_GetTick();
 
     // Check PA10 (Up Button)
     if (EXTI->PR1 & EXTI_PR1_PIF10) {
         EXTI->PR1 = EXTI_PR1_PIF10; // Clear flag
         
-        if ((current_tick - last_up_tick) > DEBOUNCE_DELAY_MS) {
-            last_up_tick = current_tick;
-            up_event_handler();
+        if ((GPIOA->IDR & GPIO_PIN_10) == 0) {
+            up_press_time = current_tick;
+        }
+        else {
+            if ((current_tick - up_press_time) >= DEBOUNCE_DELAY_MS)
+                up_event_handler();
         }
     }
     
@@ -110,9 +117,12 @@ void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR1 & EXTI_PR1_PIF12) {
         EXTI->PR1 = EXTI_PR1_PIF12; // Clear flag
         
-        if ((current_tick - last_enter_tick) > DEBOUNCE_DELAY_MS) {
-            last_enter_tick = current_tick;
-            enter_event_handler();
+        if ((GPIOA->IDR & GPIO_PIN_12) == 0) {
+            enter_press_time = current_tick;
+        }
+        else {
+            if ((current_tick - enter_press_time) >= DEBOUNCE_DELAY_MS)
+                enter_event_handler();
         }
     }
 }
