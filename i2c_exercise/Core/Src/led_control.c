@@ -97,8 +97,10 @@ static char* led_mode_enum_to_str(Led_Mode_t mode) {
             return "PWM Fixed";
         case LED_MODE_BREATHING:
             return "Breathing";
-        case LED_MODE_COUNT:
-            return "Count Blinks";
+        case LED_MODE_COUNT_FAST:
+            return "Count Blinks fast";
+        case LED_MODE_COUNT_SLOW:
+            return "Count Blinks slow";
         default:
             return "Unknown Mode";
     }
@@ -133,6 +135,9 @@ void led_set_mode(Led_Mode_t mode, int param) {
             break;
 
         case LED_MODE_FIXED_BRIGHTNESS:
+            if (param == MIN_BRIGHTNESS_LIMIT)
+                break;
+
             TIM2->ARR = MAX_BRIGHTNESS_LIMIT - 1;
             TIM2->CCR1 = param - 1;
             break;
@@ -144,7 +149,22 @@ void led_set_mode(Led_Mode_t mode, int param) {
             is_animating = true;
             break;
 
-        case LED_MODE_COUNT:
+        case LED_MODE_COUNT_FAST:
+            if (param == MIN_BRIGHTNESS_LIMIT)
+                break;
+
+            count_value = 0;
+            target_blinks = param;
+            TIM2->ARR = AUTO_RELOAD_FAST_BLINK;
+            TIM2->CCR1 = DUTY_CYCLE_FAST_BLINK;
+            is_counting = true;
+            break;
+
+        
+        case LED_MODE_COUNT_SLOW:
+            if (param == MIN_BRIGHTNESS_LIMIT)
+                break;
+
             count_value = 0;
             target_blinks = param;
             TIM2->ARR = AUTO_RELOAD_SLOW_BLINK;

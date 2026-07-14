@@ -25,7 +25,7 @@ static unsigned int current_blink_menu_setting = 0;
 static unsigned int current_blink_count = 0;
 static unsigned int current_led_brightness = 0;
 
-display_t current_state = MAIN_MENU;
+display_state_t current_state = MAIN_MENU;
 
 void set_main_menu_setting (unsigned int setting) {
     current_main_menu_setting = setting;
@@ -125,6 +125,7 @@ void oled_print_menu (display_state_t menu_type) {
         else {
             u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_options[menu_ptr]);
         }
+        u8g2_SendBuffer(&u8g2);
         y_axis += 13;
         current_box_pos += 13;
     }
@@ -136,6 +137,7 @@ void oled_print_static_led_brightness (int brightness_level) {
     float brightness_level_oled_display = brightness_level * 1.24;
     u8g2_DrawStr(&u8g2, 10, 21, "Brightness level <>");
     u8g2_DrawBox(&u8g2, 0, 25, brightness_level_oled_display, 14);
+    u8g2_SendBuffer(&u8g2);
 }
 
 void oled_print_count_number (int count) {
@@ -145,9 +147,11 @@ void oled_print_count_number (int count) {
     snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
     
     u8g2_DrawStr(&u8g2, 10, 21, temp_str);
+    u8g2_SendBuffer(&u8g2);
 }
 
 void back_event_handler() {
+    printf ("back event handler state: %d\n", current_state);
     if (current_state == MAIN_MENU)
         return;
 
@@ -173,6 +177,7 @@ void back_event_handler() {
 }
 
 void up_event_handler() {
+    printf ("up event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
             if (current_main_menu_setting == FAST_BLINK)
@@ -196,10 +201,10 @@ void up_event_handler() {
             break;
             
         case STATIC_BRIGHTNESS:
-            if (current_led_brightness > MAX_BRIGHTNESS_LIMIT)
+            if (current_led_brightness == MAX_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness++;
+            current_led_brightness += 5;
             oled_print_static_led_brightness(current_led_brightness);
             led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
             break;
@@ -210,6 +215,7 @@ void up_event_handler() {
 }
 
 void down_event_handler() {
+    printf ("down event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
             if (current_main_menu_setting == STATIC_LED)
@@ -228,7 +234,7 @@ void down_event_handler() {
             break;
         
         case COUNT:
-            if (count < MIN_COUNT_LIMIT)
+            if (current_blink_count <= MIN_COUNT_LIMIT)
                 return;
 
             current_blink_count--;
@@ -236,10 +242,10 @@ void down_event_handler() {
             break;
             
         case STATIC_BRIGHTNESS:
-            if (current_led_brightness < MIN_BRIGHTNESS_LIMIT)
+            if (current_led_brightness == MIN_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness--;
+            current_led_brightness -= 5;
             oled_print_static_led_brightness(current_led_brightness);
             led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
             break;
@@ -250,6 +256,7 @@ void down_event_handler() {
 }
 
 void enter_event_handler() {
+    printf ("Enter event handler state: %d\n", current_state);
     switch (current_state) {
         case MAIN_MENU:
             switch (current_main_menu_setting) {
@@ -264,6 +271,7 @@ void enter_event_handler() {
                     break;
 
                 case BREATHING:
+                    current_state = MAIN_MENU;
                     led_set_mode(LED_MODE_BREATHING, 0);
                     break;
 
@@ -276,6 +284,7 @@ void enter_event_handler() {
                 default:
                     break;
             }
+            break;
         
         case BLINK_MENU:
             switch (current_blink_menu_setting) {
@@ -288,12 +297,17 @@ void enter_event_handler() {
 
                 case FIX_COUNT:
                     current_state = COUNT;
+                    current_blink_count = 1;
                     oled_print_count_number(current_blink_count);
                     break;
             }
+            break;
 
         case COUNT:
-            led_set_mode(LED_MODE_COUNT, target);
+            if (current_main_menu_setting == FAST_BLINK)
+                led_set_mode(LED_MODE_COUNT_FAST, current_blink_count);
+            else
+                led_set_mode(LED_MODE_COUNT_SLOW, current_blink_count);
             break;
 
         default:
@@ -307,8 +321,5 @@ void display_manager_init(void) {
     u8g2_SetPowerSave(&u8g2, 0);
     clear_display();
     u8g2_SetFont(&u8g2, u8g2_font_6x10_tf);
-
-    oled_print_count_number(50);
-
-    u8g2_SendBuffer(&u8g2);
+    oled_print_menu(current_state);
 }

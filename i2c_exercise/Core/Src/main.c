@@ -26,6 +26,7 @@
 
 #include "cmd.h"
 #include "uart.h"
+#include "btn.h"
 #include "led_control.h"
 #include "i2c_peripheral.h"
 #include "display_manager.h"
@@ -108,6 +109,7 @@ int main(void)
     led_control_init();
     uart_init();
     i2c_hardware_init();
+    btn_init();
 
     /* Bring up and initialize the display interface */
     printf("Start the display manager\n\r");
