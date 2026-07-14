@@ -21,8 +21,19 @@ typedef enum {
 typedef enum {
     MAIN_MENU,
     BLINK_MENU,
+    BREATHING,
+    COUNT,
+    STATIC_BRIGHTNESS,
     TOTAL_MENU_COUNT
-} menu_t;
+} display_state_t;
+
+typedef enum {
+    BACK,
+    UP,
+    DOWN,
+    ENTER
+    TOTAL_BTN_COUNT
+} button_t;
 
 uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
