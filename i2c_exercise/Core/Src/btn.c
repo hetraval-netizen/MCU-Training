@@ -7,7 +7,7 @@
 #include "display_manager.h"
 
 /* Initalize all the button event flags with false initially */
-static button_status_t btn_status = {false, false, false, false};
+static volatile button_status_t btn_status = {false, false, false, false};
 
 /*
  * @brief The API to initialize all the required push buttons
@@ -68,18 +68,13 @@ void EXTI0_IRQHandler(void) {
         static uint32_t down_press_time = 0; 
         uint32_t current_tick = HAL_GetTick();
 
-        if ((GPIOA->IDR & GPIO_PIN_0) == 0) {
-            // FIRING EDGE 1 (Falling Edge): Button was just pushed down
-            printf("Down button pressed!!\n");
+        // FIRING EDGE 1 (Falling Edge): Button was just pushed down
+        if ((GPIOA->IDR & GPIO_PIN_0) == 0)
             down_press_time = current_tick;
-        }
         else {
             // FIRING EDGE 2 (Rising Edge): Button was just let go!
-            // Now the logic can reliably subtract the initial press timestamp
-            if ((current_tick - down_press_time) >= DEBOUNCE_DELAY_MS) {
-                printf("time till tick: %ld, debounce: %d\n", (current_tick - down_press_time), DEBOUNCE_DELAY_MS);
+            if ((current_tick - down_press_time) >= DEBOUNCE_DELAY_MS)
                 btn_status.down_event = true;
-            }
         }
     }
 }
@@ -94,15 +89,11 @@ void EXTI9_5_IRQHandler(void) {
         static uint32_t back_press_time = 0;
         uint32_t current_tick = HAL_GetTick();
 
-        if ((GPIOA->IDR & GPIO_PIN_9) == 0) {
-            printf("Back button pressed!!\n");
+        if ((GPIOA->IDR & GPIO_PIN_9) == 0)
             back_press_time = current_tick;
-        }
         else {
-            if ((current_tick - back_press_time) >= DEBOUNCE_DELAY_MS) {
-                printf("time till tick: %ld, debounce: %d\n", (current_tick - back_press_time), DEBOUNCE_DELAY_MS);
+            if ((current_tick - back_press_time) >= DEBOUNCE_DELAY_MS)
                 btn_status.back_event = true;
-            }
         }
     }
 }
@@ -119,15 +110,11 @@ void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR1 & EXTI_PR1_PIF10) {
         EXTI->PR1 = EXTI_PR1_PIF10; 
         
-        if ((GPIOA->IDR & GPIO_PIN_10) == 0) {
-            printf("Up button pressed!!\n");
+        if ((GPIOA->IDR & GPIO_PIN_10) == 0)
             up_press_time = current_tick;
-        }
         else {
-            if ((current_tick - up_press_time) >= DEBOUNCE_DELAY_MS) {
-                printf("time till tick: %ld, debounce: %d\n", (current_tick - up_press_time), DEBOUNCE_DELAY_MS);
+            if ((current_tick - up_press_time) >= DEBOUNCE_DELAY_MS)
                 btn_status.up_event = true;
-            }
         }
     }
     
@@ -135,15 +122,11 @@ void EXTI15_10_IRQHandler(void) {
     if (EXTI->PR1 & EXTI_PR1_PIF12) {
         EXTI->PR1 = EXTI_PR1_PIF12; 
         
-        if ((GPIOA->IDR & GPIO_PIN_12) == 0) {
-            printf("Enter button pressed!!\n");
+        if ((GPIOA->IDR & GPIO_PIN_12) == 0)
             enter_press_time = current_tick;
-        }
         else {
-            if ((current_tick - enter_press_time) >= DEBOUNCE_DELAY_MS) {
-                printf("time till tick: %ld, debounce: %d\n", (current_tick - enter_press_time), DEBOUNCE_DELAY_MS);
+            if ((current_tick - enter_press_time) >= DEBOUNCE_DELAY_MS)
                 btn_status.enter_event = true;
-            }
         }
     }
 }
@@ -153,11 +136,7 @@ void EXTI15_10_IRQHandler(void) {
  */
 void button_process_events(void) {
     button_status_t active_clicks = btn_status;
-    
-    btn_status.back_event = false;
-    btn_status.up_event = false;
-    btn_status.down_event = false;
-    btn_status.enter_event = false;
+    btn_status = (button_status_t) {0}; // Reseting the status flags
 
     if (active_clicks.back_event) {
         back_event_handler();

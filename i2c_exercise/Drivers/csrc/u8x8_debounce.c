@@ -78,26 +78,26 @@ static uint8_t u8x8_find_first_diff(uint8_t a, uint8_t b)
 
 /*
   State A:
-    u8x8->debounce_last_pin_state == current_state 
+    u8x8->debounce_last_pin_state == current_settings.state 
       --> State A
-    u8x8->debounce_last_pin_state != current_state 
-      --> u8x8->debounce_last_pin_state = current_state 
+    u8x8->debounce_last_pin_state != current_settings.state 
+      --> u8x8->debounce_last_pin_state = current_settings.state 
       --> State B + cnt
 
   State B + cnt
     --> state--
 
   State B
-    u8x8->debounce_last_pin_state == current_state 
+    u8x8->debounce_last_pin_state == current_settings.state 
       --> keypress detected
       --> State C
-    u8x8->debounce_last_pin_state != current_state 
+    u8x8->debounce_last_pin_state != current_settings.state 
       --> State A
 
   State C
-    u8x8->debounce_last_pin_state == current_state 
+    u8x8->debounce_last_pin_state == current_settings.state 
       --> State C
-    u8x8->debounce_last_pin_state != current_state 
+    u8x8->debounce_last_pin_state != current_settings.state 
       --> State A
 
 */

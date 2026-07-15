@@ -29,14 +29,13 @@ typedef enum {
     TOTAL_MENU_COUNT
 } display_state_t;
 
-/* Enum for the various button options */
-typedef enum {
-    BACK,
-    UP,
-    DOWN,
-    ENTER,
-    TOTAL_BTN_COUNT
-} button_t;
+typedef struct {
+    display_state_t state;
+    unsigned int main_menu_option;
+    unsigned int blink_menu_option;
+    unsigned int blink_count;
+    unsigned int led_brightness;
+}menu_settings_t;
 
 #define OLED_DISPLAY_BOX_HEIGHT 14
 #define OLED_DISPLAY_INIT_BOX_POS 10

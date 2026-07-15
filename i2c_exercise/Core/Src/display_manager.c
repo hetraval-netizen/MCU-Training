@@ -9,7 +9,7 @@
 extern u8g2_t u8g2; // Extern variable for using the u8g2 library
 
 /* The names for all Main menu options */
-char *main_menu_labels[] = {
+const char *main_menu_labels[] = {
     "Fast Blink",
     "Slow Blink",
     "Breathing",
@@ -17,18 +17,12 @@ char *main_menu_labels[] = {
 };
 
 /* The names for all Blink menu options */
-char *blink_menu_labels[] = {
+const char *blink_menu_labels[] = {
     "Contineous",
     "Fix count"
 };
 
-/* Static global variables to manage the menu switches and current settings */
-static unsigned int current_main_menu_option = 0;
-static unsigned int current_blink_menu_option = 0; 
-static unsigned int current_blink_count = 0;
-static unsigned int current_led_brightness = 0; 
-
-display_state_t current_state = MAIN_MENU;
+static menu_settings_t current_settings = (menu_settings_t) { 0 };
 
 /* 
  * @brief API to Clear the oled display 
@@ -96,19 +90,19 @@ void oled_print_menu (display_state_t menu_type) {
     printf("Current Menu type: %d\n", menu_type);
 
     unsigned int total_menu_options = 0;
-    char **current_menu_labels = NULL;
-    unsigned int current_setting = 0;
+    const char **current_menu_labels = NULL;
+    unsigned int current_option = 0;
     switch (menu_type) {
         case MAIN_MENU:
             total_menu_options = MAIN_MENU_TOTAL_COUNT;
             current_menu_labels = main_menu_labels;
-            current_setting = current_main_menu_option;
+            current_option = current_settings.main_menu_option;
             break;
 
         case BLINK_MENU:
             total_menu_options = BLINK_MENU_TOTAL_COUNT;
             current_menu_labels = blink_menu_labels;
-            current_setting = current_blink_menu_option;
+            current_option = current_settings.blink_menu_option;
             break;
 
         default:
@@ -122,7 +116,7 @@ void oled_print_menu (display_state_t menu_type) {
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
     for (int menu_ptr = 0; menu_ptr < total_menu_options; menu_ptr++) {
-        if (menu_ptr == current_setting) {
+        if (menu_ptr == current_option) {
             u8g2_SetDrawColor(&u8g2, 1);
             u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
             u8g2_SetDrawColor(&u8g2, 0);
@@ -163,28 +157,78 @@ void oled_print_count_number (int count) {
     u8g2_SendBuffer(&u8g2);
 }
 
+static void main_menu_handler (void) {
+    switch (current_settings.main_menu_option) {
+        case FAST_BLINK:
+            current_settings.state = BLINK_MENU;
+            oled_print_menu(current_settings.state);
+            break;
+
+        case SLOW_BLINK:
+            current_settings.state = BLINK_MENU;
+            oled_print_menu(current_settings.state);
+            break;
+
+        case BREATHING:
+            current_settings.state = MAIN_MENU;
+            led_set_mode(LED_MODE_BREATHING, 0);
+            break;
+
+        case STATIC_LED:
+            current_settings.state = STATIC_BRIGHTNESS;
+            oled_print_static_led_brightness(current_settings.led_brightness);
+            led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_settings.led_brightness);
+            break;
+        
+        default:
+            printf("Unexpected event!!\n");
+            break;
+    }
+}
+
+static void blink_menu_handler (void) {
+    switch (current_settings.blink_menu_option) {
+        case CONTINEOUS:
+            if (current_settings.main_menu_option == FAST_BLINK)
+                led_set_mode(LED_MODE_FAST_BLINK, 0);
+            else
+                led_set_mode(LED_MODE_SLOW_BLINK, 0);
+            break;
+
+        case FIX_COUNT:
+            current_settings.state = COUNT;
+            current_settings.blink_count = MIN_COUNT_LIMIT;
+            oled_print_count_number(current_settings.blink_count);
+            break;
+
+        default:
+            printf("Unexpected event!!\n");
+            break;
+    }
+}
+
 /*
  * @brief The event handler for the back button pressed
  */
 void back_event_handler() {
-    printf ("back event handler state: %d\n", current_state);
-    if (current_state == MAIN_MENU)
+    printf ("back event handler state: %d\n", current_settings.state);
+    if (current_settings.state == MAIN_MENU)
         return;
 
-    switch (current_state) {
+    switch (current_settings.state) {
         case BLINK_MENU:
-            current_state = MAIN_MENU;
-            oled_print_menu(current_state);
+            current_settings.state = MAIN_MENU;
+            oled_print_menu(current_settings.state);
             break;
 
         case COUNT:
-            current_state = BLINK_MENU;
-            oled_print_menu(current_state);
+            current_settings.state = BLINK_MENU;
+            oled_print_menu(current_settings.state);
             break;
 
         case STATIC_BRIGHTNESS:
-            current_state = MAIN_MENU;
-            oled_print_menu(current_state);
+            current_settings.state = MAIN_MENU;
+            oled_print_menu(current_settings.state);
             break;
 
         default:
@@ -196,39 +240,40 @@ void back_event_handler() {
  * @brief The event handler for the up button pressed
  */
 void up_event_handler() {
-    printf ("up event handler state: %d\n", current_state);
-    switch (current_state) {
+    printf ("up event handler state: %d\n", current_settings.state);
+    switch (current_settings.state) {
         case MAIN_MENU:
-            if (current_main_menu_option == FAST_BLINK)
+            if (current_settings.main_menu_option == FAST_BLINK)
                 return;
             
-            current_main_menu_option--;
-            oled_print_menu(current_state);
+            current_settings.main_menu_option--;
+            oled_print_menu(current_settings.state);
             break;
 
         case BLINK_MENU:
-            if (current_blink_menu_option == CONTINEOUS)
+            if (current_settings.blink_menu_option == CONTINEOUS)
                 return;
 
-            current_blink_menu_option--;
-            oled_print_menu(current_state);
+            current_settings.blink_menu_option--;
+            oled_print_menu(current_settings.state);
             break;
         
         case COUNT:
-            current_blink_count++;
-            oled_print_count_number(current_blink_count);
+            current_settings.blink_count++;
+            oled_print_count_number(current_settings.blink_count);
             break;
             
         case STATIC_BRIGHTNESS:
-            if (current_led_brightness == MAX_BRIGHTNESS_LIMIT)
+            if (current_settings.led_brightness == MAX_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness += OLED_DISPLAY_BRIGHTNESS_STEP;
-            oled_print_static_led_brightness(current_led_brightness);
-            led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
+            current_settings.led_brightness += OLED_DISPLAY_BRIGHTNESS_STEP;
+            oled_print_static_led_brightness(current_settings.led_brightness);
+            led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_settings.led_brightness);
             break;
 
         default:
+            printf("Unexpected event!!\n");
             break;
     }
 }
@@ -237,42 +282,43 @@ void up_event_handler() {
  * @brief The event handler for the down button pressed
  */
 void down_event_handler() {
-    printf ("down event handler state: %d\n", current_state);
-    switch (current_state) {
+    printf ("down event handler state: %d\n", current_settings.state);
+    switch (current_settings.state) {
         case MAIN_MENU:
-            if (current_main_menu_option == STATIC_LED)
+            if (current_settings.main_menu_option == STATIC_LED)
                 return;
             
-            current_main_menu_option++;
-            oled_print_menu(current_state);
+            current_settings.main_menu_option++;
+            oled_print_menu(current_settings.state);
             break;
 
         case BLINK_MENU:
-            if (current_blink_menu_option == FIX_COUNT)
+            if (current_settings.blink_menu_option == FIX_COUNT)
                 return;
 
-            current_blink_menu_option++;
-            oled_print_menu(current_state);
+            current_settings.blink_menu_option++;
+            oled_print_menu(current_settings.state);
             break;
         
         case COUNT:
-            if (current_blink_count <= MIN_COUNT_LIMIT)
+            if (current_settings.blink_count <= MIN_COUNT_LIMIT)
                 return;
 
-            current_blink_count--;
-            oled_print_count_number(current_blink_count);
+            current_settings.blink_count--;
+            oled_print_count_number(current_settings.blink_count);
             break;
             
         case STATIC_BRIGHTNESS:
-            if (current_led_brightness == MIN_BRIGHTNESS_LIMIT)
+            if (current_settings.led_brightness == MIN_BRIGHTNESS_LIMIT)
                 return;
 
-            current_led_brightness -= OLED_DISPLAY_BRIGHTNESS_STEP;
-            oled_print_static_led_brightness(current_led_brightness);
-            led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
+            current_settings.led_brightness -= OLED_DISPLAY_BRIGHTNESS_STEP;
+            oled_print_static_led_brightness(current_settings.led_brightness);
+            led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_settings.led_brightness);
             break;
 
         default:
+            printf("Unexpected event!!\n");
             break;
     }
 }
@@ -281,61 +327,25 @@ void down_event_handler() {
  * @brief The event handler for the Enter button pressed
  */
 void enter_event_handler() {
-    printf ("Enter event handler state: %d\n", current_state);
-    switch (current_state) {
+    printf ("Enter event handler state: %d\n", current_settings.state);
+    switch (current_settings.state) {
         case MAIN_MENU:
-            switch (current_main_menu_option) {
-                case FAST_BLINK:
-                    current_state = BLINK_MENU;
-                    oled_print_menu(current_state);
-                    break;
-
-                case SLOW_BLINK:
-                    current_state = BLINK_MENU;
-                    oled_print_menu(current_state);
-                    break;
-
-                case BREATHING:
-                    current_state = MAIN_MENU;
-                    led_set_mode(LED_MODE_BREATHING, 0);
-                    break;
-
-                case STATIC_LED:
-                    current_state = STATIC_BRIGHTNESS;
-                    oled_print_static_led_brightness(current_led_brightness);
-                    led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_led_brightness);
-                    break;
-                
-                default:
-                    break;
-            }
+            main_menu_handler();
             break;
         
         case BLINK_MENU:
-            switch (current_blink_menu_option) {
-                case CONTINEOUS:
-                    if (current_main_menu_option == FAST_BLINK)
-                        led_set_mode(LED_MODE_FAST_BLINK, 0);
-                    else
-                        led_set_mode(LED_MODE_SLOW_BLINK, 0);
-                    break;
-
-                case FIX_COUNT:
-                    current_state = COUNT;
-                    current_blink_count = MIN_COUNT_LIMIT;
-                    oled_print_count_number(current_blink_count);
-                    break;
-            }
+            blink_menu_handler();
             break;
 
         case COUNT:
-            if (current_main_menu_option == FAST_BLINK)
-                led_set_mode(LED_MODE_COUNT_FAST, current_blink_count);
+            if (current_settings.main_menu_option == FAST_BLINK)
+                led_set_mode(LED_MODE_COUNT_FAST, current_settings.blink_count);
             else
-                led_set_mode(LED_MODE_COUNT_SLOW, current_blink_count);
+                led_set_mode(LED_MODE_COUNT_SLOW, current_settings.blink_count);
             break;
 
         default:
+            printf("Unexpected event!!\n");
             break;
     }
 }
@@ -349,5 +359,5 @@ void display_manager_init(void) {
     u8g2_SetPowerSave(&u8g2, 0);
     clear_display();
     u8g2_SetFont(&u8g2, u8g2_font_6x10_tf);
-    oled_print_menu(current_state);
+    oled_print_menu(current_settings.state);
 }
