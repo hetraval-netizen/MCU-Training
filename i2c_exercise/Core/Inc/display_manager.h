@@ -25,6 +25,7 @@ typedef enum {
     MAIN_MENU,
     BLINK_MENU,
     COUNT,
+    BREATHE_MENU,
     STATIC_BRIGHTNESS,
     TOTAL_MENU_COUNT
 } display_state_t;
@@ -56,5 +57,6 @@ void enter_event_handler();
 uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 void display_manager_init(void);
+void oled_print_breathing(void);
 
 #endif /* INC_DISPLAY_MANAGER_H_ */

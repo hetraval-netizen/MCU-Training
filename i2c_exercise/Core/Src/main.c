@@ -115,6 +115,7 @@ int main(void)
 
     while (1) {
         set_error_led(false);
+        oled_print_breathing();
         button_process_events();
         uart_receive_and_process();
     }

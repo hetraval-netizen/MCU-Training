@@ -24,6 +24,70 @@ const char *blink_menu_labels[] = {
 
 static menu_settings_t current_settings = (menu_settings_t) { 0 };
 
+volatile uint8_t oled_needs_refresh = 0;
+volatile unsigned int current_animation_stage = 0;
+volatile int animation_direction = 1;
+volatile bool is_breathing = false;
+
+/**
+ * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ */
+static void oled_reset_timer_state(void) {
+    TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
+    TIM3->CNT = 0;             // Reset counter to 0
+    is_breathing = false;
+}
+
+/**
+ * @brief This API will be initalising the timer 3 
+ */
+void oled_tim3_init(void) {
+    // Enable the clock for Timer 3
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
+
+    // Clear the Control register for Timer 3
+    TIM3->CR1 = 0;
+
+    // Gear down to 10,000 Hz (10 ticks per millisecond)
+    TIM3->PSC = PRESCALE_CLOCK;
+
+    TIM3->ARR = 3500-1;
+
+    TIM3->DIER |= TIM_DIER_UIE;
+
+    NVIC_SetPriority(TIM3_IRQn, 5);
+    NVIC_EnableIRQ(TIM3_IRQn);
+
+    TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+/**
+ * @brief  Hardware Interrupt Service Routine for TIM3
+ */
+void TIM3_IRQHandler(void) {
+    // Check if the Update Interrupt Flag (UIF) is set
+    if (TIM3->SR & TIM_SR_UIF) {
+        // CRITICAL: Manually clear the interrupt flag
+        TIM3->SR &= ~TIM_SR_UIF; 
+
+        // Advance the animation math step
+        if (animation_direction == 1) {
+            current_animation_stage += 10;
+            if (current_animation_stage >= 100) {
+                animation_direction = -1;
+            }
+        } else {
+            current_animation_stage -= 10;
+            if (current_animation_stage == 0) {
+                animation_direction = 1;
+            }
+        }
+
+        // Alert the main thread loop to redraw the screen
+        oled_needs_refresh = 1;
+    }
+}
+
 /* 
  * @brief API to Clear the oled display 
  */
@@ -133,6 +197,38 @@ void oled_print_menu (display_state_t menu_type) {
 }
 
 /*
+ * @brief The API to print the led brightness bar on the oled display.
+ *        This function is non-blocking and relies on TIM3 interrupts.
+ */
+void oled_print_breathing (void) {
+
+    // 1. Only execute if the timer has flagged a state change
+    if (is_breathing && oled_needs_refresh) {
+        
+        // Clear the flag immediately so we don't redraw until the next interrupt
+        oled_needs_refresh = 0;
+
+        // 2. Clear the RAM workspace buffer
+        u8g2_ClearBuffer(&u8g2);
+
+        // 3. Redraw text every single frame so it never disappears
+        u8g2_DrawStr(&u8g2, 30, OLED_DISPLAY_STR_INIT_Y_AXIS, "Breathing!!");
+
+        // 4. Calculate and draw the current progress box
+        float brightness_level_oled_display = current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, (uint8_t)brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+
+        // 5. Push the complete frame memory over I2C/SPI to the physical screen
+        u8g2_SendBuffer(&u8g2);
+
+        // Debug print
+        printf("Current Brightness: %d\n", current_animation_stage);
+    }
+}
+
+
+
+/*
  * @brief The API to print the led brightness bar on the oled display
  */
 void oled_print_static_led_brightness (int brightness_level) {
@@ -169,9 +265,10 @@ static void main_menu_handler (void) {
             oled_print_menu(current_settings.state);
             break;
 
-        case BREATHING:
-            current_settings.state = MAIN_MENU;
-            led_set_mode(LED_MODE_BREATHING, 0);
+            case BREATHING:
+            current_settings.state = BREATHE_MENU; // Ensure state tracks cleanly
+            is_breathing = true;
+            led_set_mode(LED_MODE_BREATHING, 0); // Complete snippet implementation
             break;
 
         case STATIC_LED:
@@ -223,6 +320,12 @@ void back_event_handler() {
 
         case COUNT:
             current_settings.state = BLINK_MENU;
+            oled_print_menu(current_settings.state);
+            break;
+
+        case BREATHE_MENU:
+            current_settings.state = MAIN_MENU;
+            oled_reset_timer_state();
             oled_print_menu(current_settings.state);
             break;
 
@@ -345,7 +448,6 @@ void enter_event_handler() {
             break;
 
         default:
-            printf("Unexpected event!!\n");
             break;
     }
 }
@@ -354,6 +456,7 @@ void enter_event_handler() {
  * @brief The initialization code for the ssd1306 for using the u8g2 library
  */
 void display_manager_init(void) {
+    oled_tim3_init();
     u8g2_Setup_ssd1306_i2c_128x64_noname_f(&u8g2, U8G2_R0, u8g2_byte_hw_i2c_stm32, u8g2_gpio_and_delay_stm32);
     u8g2_InitDisplay(&u8g2);
     u8g2_SetPowerSave(&u8g2, 0);
