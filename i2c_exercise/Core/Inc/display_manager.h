@@ -38,6 +38,10 @@ typedef struct {
     unsigned int led_brightness;
 }menu_settings_t;
 
+#define OLED_BREATHING_DELAY 249
+#define OLED_BREATHING_BAR_STEP 1
+#define OLED_BREATHING_BAR_MIN 1
+#define OLED_BREATHING_BAR_MAX 105
 #define OLED_DISPLAY_BOX_HEIGHT 14
 #define OLED_DISPLAY_INIT_BOX_POS 10
 #define OLED_DISPLAY_PIXEL_WIDTH 128
@@ -57,6 +61,6 @@ void enter_event_handler();
 uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 void display_manager_init(void);
-void oled_print_breathing(void);
+void process_oled_events(void);
 
 #endif /* INC_DISPLAY_MANAGER_H_ */

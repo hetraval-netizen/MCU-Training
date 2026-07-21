@@ -23,42 +23,40 @@ const char *blink_menu_labels[] = {
 };
 
 static menu_settings_t current_settings = (menu_settings_t) { 0 };
-
 volatile uint8_t oled_needs_refresh = 0;
 volatile unsigned int current_animation_stage = 0;
 volatile int animation_direction = 1;
-volatile bool is_breathing = false;
+bool is_breathing = false;
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
  */
-static void oled_reset_timer_state(void) {
+static void reset_tim3_state(void) {
     TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
-    TIM3->CNT = 0;             // Reset counter to 0
     is_breathing = false;
+}
+
+/**
+ * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ */
+static void set_tim3_state(void) {
+    TIM3->ARR = OLED_BREATHING_DELAY;
+    TIM3->DIER |= TIM_DIER_UIE;
+    TIM3->CR1 |= TIM_CR1_CEN;
 }
 
 /**
  * @brief This API will be initalising the timer 3 
  */
 void oled_tim3_init(void) {
-    // Enable the clock for Timer 3
-    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN;
 
-    // Clear the Control register for Timer 3
+    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM3EN; // Enable the clock for Timer 3
     TIM3->CR1 = 0;
+    TIM3->PSC = PRESCALE_CLOCK; // Gear down to 10,000 Hz (10 ticks per millisecond)
 
-    // Gear down to 10,000 Hz (10 ticks per millisecond)
-    TIM3->PSC = PRESCALE_CLOCK;
-
-    TIM3->ARR = 3500-1;
-
-    TIM3->DIER |= TIM_DIER_UIE;
-
+    // Set the lower priority so there is no conflict with the button and led intrupts
     NVIC_SetPriority(TIM3_IRQn, 5);
     NVIC_EnableIRQ(TIM3_IRQn);
-
-    TIM3->CR1 |= TIM_CR1_CEN;
 }
 
 /**
@@ -67,23 +65,19 @@ void oled_tim3_init(void) {
 void TIM3_IRQHandler(void) {
     // Check if the Update Interrupt Flag (UIF) is set
     if (TIM3->SR & TIM_SR_UIF) {
-        // CRITICAL: Manually clear the interrupt flag
-        TIM3->SR &= ~TIM_SR_UIF; 
+        TIM3->SR &= ~TIM_SR_UIF;
 
-        // Advance the animation math step
         if (animation_direction == 1) {
-            current_animation_stage += 10;
-            if (current_animation_stage >= 100) {
-                animation_direction = -1;
+            current_animation_stage += OLED_BREATHING_BAR_STEP;
+            if (current_animation_stage >= OLED_BREATHING_BAR_MAX) {
+                animation_direction = ANIM_DIRECTION_NEGATIVE;
             }
         } else {
-            current_animation_stage -= 10;
-            if (current_animation_stage == 0) {
-                animation_direction = 1;
+            current_animation_stage -= OLED_BREATHING_BAR_STEP;
+            if (current_animation_stage == OLED_BREATHING_BAR_MIN) {
+                animation_direction = ANIM_DIRECTION_POSITIVE;
             }
         }
-
-        // Alert the main thread loop to redraw the screen
         oled_needs_refresh = 1;
     }
 }
@@ -96,7 +90,7 @@ void clear_display(){
     u8g2_ClearBuffer(&u8g2);
 }
 
-/*
+/**
  * @brief delay API callback config for the u8g2 library
  */
 uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
@@ -110,7 +104,7 @@ uint8_t u8g2_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, vo
     return 1;
 }
 
-/*
+/**
  * @brief Byte API callback config for the u8g2 library for various byte related ops
  */
 uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
@@ -202,27 +196,17 @@ void oled_print_menu (display_state_t menu_type) {
  */
 void oled_print_breathing (void) {
 
-    // 1. Only execute if the timer has flagged a state change
+    // Set the timer for the ~25 ms Interval for moving the status bar
+    set_tim3_state();
     if (is_breathing && oled_needs_refresh) {
-        
-        // Clear the flag immediately so we don't redraw until the next interrupt
         oled_needs_refresh = 0;
-
-        // 2. Clear the RAM workspace buffer
-        u8g2_ClearBuffer(&u8g2);
-
-        // 3. Redraw text every single frame so it never disappears
-        u8g2_DrawStr(&u8g2, 30, OLED_DISPLAY_STR_INIT_Y_AXIS, "Breathing!!");
-
-        // 4. Calculate and draw the current progress box
         float brightness_level_oled_display = current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+
+        // Display Breathing effect with the status Bar moving TO and FRO
+        u8g2_ClearBuffer(&u8g2);
+        u8g2_DrawStr(&u8g2, 30, OLED_DISPLAY_STR_INIT_Y_AXIS, "Breathing!!");
         u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, (uint8_t)brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
-
-        // 5. Push the complete frame memory over I2C/SPI to the physical screen
         u8g2_SendBuffer(&u8g2);
-
-        // Debug print
-        printf("Current Brightness: %d\n", current_animation_stage);
     }
 }
 
@@ -267,7 +251,9 @@ static void main_menu_handler (void) {
 
             case BREATHING:
             current_settings.state = BREATHE_MENU; // Ensure state tracks cleanly
+            current_animation_stage = OLED_BREATHING_BAR_MIN;
             is_breathing = true;
+            oled_print_breathing();
             led_set_mode(LED_MODE_BREATHING, 0); // Complete snippet implementation
             break;
 
@@ -325,7 +311,8 @@ void back_event_handler() {
 
         case BREATHE_MENU:
             current_settings.state = MAIN_MENU;
-            oled_reset_timer_state();
+            is_breathing = false;
+            reset_tim3_state();
             oled_print_menu(current_settings.state);
             break;
 
@@ -452,7 +439,7 @@ void enter_event_handler() {
     }
 }
 
-/*
+/**
  * @brief The initialization code for the ssd1306 for using the u8g2 library
  */
 void display_manager_init(void) {
@@ -463,4 +450,13 @@ void display_manager_init(void) {
     clear_display();
     u8g2_SetFont(&u8g2, u8g2_font_6x10_tf);
     oled_print_menu(current_settings.state);
+}
+
+/**
+ * @brief The API to control the oled events that needs to be controlled via Timers or Intrupts
+ */
+void process_oled_events(void) {
+    // Call the print breathing API if the flag is set via main_menu_handler
+    if (is_breathing)
+        oled_print_breathing();
 }
