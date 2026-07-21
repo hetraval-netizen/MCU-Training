@@ -205,7 +205,7 @@ void oled_print_breathing (void) {
         // Display Breathing effect with the status Bar moving TO and FRO
         u8g2_ClearBuffer(&u8g2);
         u8g2_DrawStr(&u8g2, 30, OLED_DISPLAY_STR_INIT_Y_AXIS, "Breathing!!");
-        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, (uint8_t)brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
         u8g2_SendBuffer(&u8g2);
     }
 }
@@ -251,7 +251,7 @@ static void main_menu_handler (void) {
 
             case BREATHING:
             current_settings.state = BREATHE_MENU; // Ensure state tracks cleanly
-            current_animation_stage = OLED_BREATHING_BAR_MIN;
+            current_animation_stage = OLED_BREATHING_BAR_INIT;
             is_breathing = true;
             oled_print_breathing();
             led_set_mode(LED_MODE_BREATHING, 0); // Complete snippet implementation
