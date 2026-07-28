@@ -1,6 +1,8 @@
 #ifndef SRC_LED_CONTROL_H_
 #define SRC_LED_CONTROL_H_
 
+#include <stdbool.h>
+
 /**
  * @brief Supported operating status profiles managed by the system state engine.
  */
@@ -9,7 +11,8 @@ typedef enum {
     LED_MODE_SLOW_BLINK,   /**< Continuous slow square wave cycling pattern */
     LED_MODE_FIXED_BRIGHTNESS,          /**< Constant solid beam fixed to a precise brightness */
     LED_MODE_BREATHING,    /**< Seamless automatic sinusoidal fading ramp pattern */
-    LED_MODE_COUNT,        /**< Fixed flashing run loop sequence that auto-terminates */
+    LED_MODE_COUNT_FAST,        /**< Fixed flashing run loop sequence that auto-terminates */
+    LED_MODE_COUNT_SLOW,
 	LED_MODE_MAX_CNT
 } Led_Mode_t;
 
@@ -20,7 +23,7 @@ typedef enum {
 #define DUTY_CYCLE_SLOW_BLINK 8000
 #define AUTO_RELOAD_BREATHING 99
 #define ERR_LED_INDICATION_TIME 1000 // 1 second
-#define MIN_COUNT_LIMIT 0
+#define MIN_COUNT_LIMIT 1
 #define MIN_BRIGHTNESS_LIMIT 0
 #define MAX_BRIGHTNESS_LIMIT 100
 #define ANIM_DIRECTION_POSITIVE 1

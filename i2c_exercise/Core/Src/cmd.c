@@ -104,7 +104,7 @@ void handle_count (char *args){
     char *endptr;
     long target = strtol(args, &endptr, 10);
     if (target > MIN_COUNT_LIMIT)
-        led_set_mode(LED_MODE_COUNT, target);
+        led_set_mode(LED_MODE_COUNT_SLOW, target);
     else
         printf("Out of Bounds!!\r\n");
 }

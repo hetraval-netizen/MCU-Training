@@ -26,6 +26,7 @@
 
 #include "cmd.h"
 #include "uart.h"
+#include "btn.h"
 #include "led_control.h"
 #include "i2c_peripheral.h"
 #include "display_manager.h"
@@ -108,14 +109,14 @@ int main(void)
     led_control_init();
     uart_init();
     i2c_hardware_init();
-
-    /* Bring up and initialize the display interface */
-    printf("Start the display manager\n\r");
+    btn_init();
 	  display_manager_init();
     uart_sendstring("Welcome to the UART Console!\r\n");
 
     while (1) {
-        set_error_led(false); 
+        set_error_led(false);
+        process_oled_events();
+        button_process_events();
         uart_receive_and_process();
     }
 
