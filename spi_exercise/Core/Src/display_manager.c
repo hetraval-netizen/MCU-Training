@@ -1,6 +1,8 @@
 #include "display_manager.h"
 #include "i2c_peripheral.h"
 #include "led_control.h"
+#include "uart.h"
+#include "mpu.h"
 #include "u8g2.h"
 
 #include <stdio.h>
@@ -286,7 +288,7 @@ static void main_menu_handler (void) {
             oled_print_menu(current_settings.state);
             break;
 
-            case BREATHING:
+        case BREATHING:
             current_settings.state = BREATHE_MENU; // Ensure state tracks cleanly
             current_animation_stage = OLED_BREATHING_BAR_INIT;
             is_breathing = true;
@@ -298,6 +300,26 @@ static void main_menu_handler (void) {
             current_settings.state = STATIC_BRIGHTNESS;
             oled_print_static_led_brightness(current_settings.led_brightness);
             led_set_mode(LED_MODE_FIXED_BRIGHTNESS, current_settings.led_brightness);
+            break;
+
+        case SENSOR_DATA:
+            current_settings.state = SENSOR_DATA;
+            int16_t accel[3] = {0};
+            int16_t gyro[3] = {0};
+            char output_bfr[128];
+
+            // 1. Fetch fresh raw bits from the MPU-9250 over SPI
+            mpu_read_raw_data(accel, gyro);
+
+            // 2. Print Accelerometer Raw Values
+            uart_sendstring("\r\n--- MPU-9250 Raw Sensor Telemetry ---\r\n");
+            sprintf(output_bfr, "  ACCEL -> X: %d\tY: %d\tZ: %d\r\n", accel[0], accel[1], accel[2]);
+            uart_sendstring(output_bfr);
+
+            // 3. Print Gyroscope Raw Values
+            sprintf(output_bfr, "  GYRO  -> X: %d\tY: %d\tZ: %d\r\n", gyro[0], gyro[1], gyro[2]);
+            uart_sendstring(output_bfr);
+            uart_sendstring("-------------------------------------\r\n");
             break;
         
         default:

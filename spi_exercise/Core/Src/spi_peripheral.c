@@ -3,7 +3,7 @@
 #include "main.h"
 #include "spi_peripheral.h"
 
-void spi_init(void) {
+void spi_hardware_init(void) {
     // 1. Enable clocks for GPIO A, GPIO B, and the SPI1 peripheral engine
     RCC->AHB2ENR |= (RCC_AHB2ENR_GPIOAEN | RCC_AHB2ENR_GPIOBEN);
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;

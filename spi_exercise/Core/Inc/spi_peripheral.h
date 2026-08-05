@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-void spi_init(void);
+void spi_hardware_init(void);
 uint8_t spi_transfer (uint8_t data);
 
 #endif // INC_SPI_PERIPHERAL_H_
