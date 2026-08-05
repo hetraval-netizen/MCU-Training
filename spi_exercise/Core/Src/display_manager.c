@@ -14,6 +14,7 @@ const char *main_menu_labels[] = {
     "Slow Blink",
     "Breathing",
     "Static LED",
+    "Sensor Data",
 };
 
 /* The names for all Blink menu options */
@@ -27,6 +28,8 @@ volatile uint8_t oled_needs_refresh = 0;
 volatile unsigned int current_animation_stage = 0;
 volatile int animation_direction = 1;
 bool is_breathing = false;
+static unsigned int menu_start_ptr = FAST_BLINK;
+static unsigned int menu_end_ptr = BREATHING;
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
@@ -141,53 +144,17 @@ uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
     return 1;
 }
 
-/*
- * @brief The API to print the desired menu type on the oled display
+/**
+ * @brief This API will print the headers for each menu
  */
-void oled_print_menu (display_state_t menu_type) {
-    printf("Current Menu type: %d\n", menu_type);
+static void oled_print_header(char *title) {
+    // Set bold font for the title
+    u8g2_SetFont(&u8g2, u8g2_font_7x14B_tr);
+    u8g2_DrawStr(&u8g2, 35, 12, title);
 
-    unsigned int total_menu_options = 0;
-    const char **current_menu_labels = NULL;
-    unsigned int current_option = 0;
-    switch (menu_type) {
-        case MAIN_MENU:
-            total_menu_options = MAIN_MENU_TOTAL_COUNT;
-            current_menu_labels = main_menu_labels;
-            current_option = current_settings.main_menu_option;
-            break;
+    u8g2_DrawHLine(&u8g2, 0, 18, 128);
 
-        case BLINK_MENU:
-            total_menu_options = BLINK_MENU_TOTAL_COUNT;
-            current_menu_labels = blink_menu_labels;
-            current_option = current_settings.blink_menu_option;
-            break;
-
-        default:
-            printf("Invalid menu type\n");
-            return;
-    }
-
-    clear_display();
-    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
-    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
-    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
-
-    for (int menu_ptr = 0; menu_ptr < total_menu_options; menu_ptr++) {
-        if (menu_ptr == current_option) {
-            u8g2_SetDrawColor(&u8g2, 1);
-            u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
-            u8g2_SetDrawColor(&u8g2, 0);
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_labels[menu_ptr]);
-            u8g2_SetDrawColor(&u8g2, 1);
-        }
-        else {
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, current_menu_labels[menu_ptr]);
-        }
-        u8g2_SendBuffer(&u8g2);
-        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
-        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
-    }
+    u8g2_SetFont(&u8g2, u8g2_font_6x10_tf);
 }
 
 /*
@@ -195,29 +162,23 @@ void oled_print_menu (display_state_t menu_type) {
  *        This function is non-blocking and relies on TIM3 interrupts.
  */
 void oled_print_breathing (void) {
-
-    // Set the timer for the ~25 ms Interval for moving the status bar
     set_tim3_state();
     if (is_breathing && oled_needs_refresh) {
         oled_needs_refresh = 0;
         float brightness_level_oled_display = current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
-
-        // Display Breathing effect with the status Bar moving TO and FRO
         u8g2_ClearBuffer(&u8g2);
-        u8g2_DrawStr(&u8g2, 30, OLED_DISPLAY_STR_INIT_Y_AXIS, "Breathing!!");
+        oled_print_header("Breathing");
         u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
         u8g2_SendBuffer(&u8g2);
     }
 }
-
-
 
 /*
  * @brief The API to print the led brightness bar on the oled display
  */
 void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
-
+    oled_print_header("Static LED");
     float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
     u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, "Brightness level <>");
     u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
@@ -230,11 +191,87 @@ void oled_print_static_led_brightness (int brightness_level) {
 void oled_print_count_number (int count) {
     clear_display();
 
+    oled_print_header("Fix Count");
     char temp_str[32];
     snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
     
     u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
     u8g2_SendBuffer(&u8g2);
+}
+
+static void oled_print_main_menu(void) {
+    clear_display();
+
+    oled_print_header("Main Menu");
+
+    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
+    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
+    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
+
+    for (int menu_ptr = menu_start_ptr; menu_ptr < menu_end_ptr + 1; menu_ptr++){
+        if (menu_ptr == current_settings.main_menu_option){
+            u8g2_SetDrawColor(&u8g2, 1);
+            u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
+            u8g2_SetDrawColor(&u8g2, 0);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_ptr]);
+            u8g2_SetDrawColor(&u8g2, 1);
+        }
+        else {
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_ptr]);
+        }
+
+        u8g2_SendBuffer(&u8g2);
+        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
+        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
+    }
+}
+
+static void oled_print_blink_menu(void) {
+    clear_display();
+
+    oled_print_header("Blink Menu");
+
+    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
+    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
+    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
+
+    for (int menu_ptr = 0; menu_ptr < BLINK_MENU_TOTAL_COUNT; menu_ptr++){
+        if (menu_ptr == current_settings.blink_menu_option){
+            u8g2_SetDrawColor(&u8g2, 1);
+            u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
+            u8g2_SetDrawColor(&u8g2, 0);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_ptr]);
+            u8g2_SetDrawColor(&u8g2, 1);
+        }
+        else {
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_ptr]);
+        }
+
+        u8g2_SendBuffer(&u8g2);
+        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
+        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
+    }
+}
+
+/*
+ * @brief The API to print the desired menu type on the oled display
+ */
+void oled_print_menu (display_state_t menu_type) {
+    printf("Current Menu type: %d\n", menu_type);
+
+    switch (menu_type) {
+        case MAIN_MENU:
+            oled_print_main_menu();
+            break;
+
+        case BLINK_MENU:
+            oled_print_blink_menu();
+            break;
+
+        default:
+            printf("Invalid menu type\n");
+            return;
+    }
 }
 
 static void main_menu_handler (void) {
@@ -324,6 +361,7 @@ void back_event_handler() {
         default:
             break;
     }
+    led_reset_timer_state();
 }
 
 /*
@@ -336,6 +374,11 @@ void up_event_handler() {
             if (current_settings.main_menu_option == FAST_BLINK)
                 return;
             
+            if (current_settings.main_menu_option == menu_start_ptr){
+                menu_start_ptr--;
+                menu_end_ptr--;
+            }
+
             current_settings.main_menu_option--;
             oled_print_menu(current_settings.state);
             break;
@@ -375,9 +418,14 @@ void down_event_handler() {
     printf ("down event handler state: %d\n", current_settings.state);
     switch (current_settings.state) {
         case MAIN_MENU:
-            if (current_settings.main_menu_option == STATIC_LED)
+            if (current_settings.main_menu_option == SENSOR_DATA)
                 return;
             
+            if (current_settings.main_menu_option == menu_end_ptr){
+                menu_start_ptr++;
+                menu_end_ptr++;
+            }
+
             current_settings.main_menu_option++;
             oled_print_menu(current_settings.state);
             break;
