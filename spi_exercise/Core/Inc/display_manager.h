@@ -28,6 +28,7 @@ typedef enum {
     COUNT,
     BREATHE_MENU,
     STATIC_BRIGHTNESS,
+    SENSOR_MENU,
     TOTAL_MENU_COUNT
 } display_state_t;
 
@@ -40,6 +41,7 @@ typedef struct {
 }menu_settings_t;
 
 #define OLED_BREATHING_DELAY 249
+#define OLED_SENSOR_DATA_DELAY 3000
 #define OLED_BREATHING_BAR_MIN 0
 #define OLED_BREATHING_BAR_MAX 105
 #define OLED_BREATHING_BAR_INIT 1

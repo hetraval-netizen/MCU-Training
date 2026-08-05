@@ -30,8 +30,9 @@ volatile uint8_t oled_needs_refresh = 0;
 volatile unsigned int current_animation_stage = 0;
 volatile int animation_direction = 1;
 bool is_breathing = false;
-static unsigned int menu_start_ptr = FAST_BLINK;
-static unsigned int menu_end_ptr = BREATHING;
+static unsigned int menu_start_ptr = 0;
+static unsigned int menu_end_ptr = 2;
+bool print_sensor_data = false;
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
@@ -44,8 +45,25 @@ static void reset_tim3_state(void) {
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
  */
-static void set_tim3_state(void) {
+static void reset_tim3_sensor_data_state(void) {
+    TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
+    is_breathing = false;
+}
+
+/**
+ * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ */
+static void set_tim3_breathing_state(void) {
     TIM3->ARR = OLED_BREATHING_DELAY;
+    TIM3->DIER |= TIM_DIER_UIE;
+    TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+/**
+ * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ */
+static void set_tim3_sensor_data_state(void) {
+    TIM3->ARR = OLED_SENSOR_DATA_DELAY;
     TIM3->DIER |= TIM_DIER_UIE;
     TIM3->CR1 |= TIM_CR1_CEN;
 }
@@ -72,18 +90,24 @@ void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_UIF) {
         TIM3->SR &= ~TIM_SR_UIF;
 
-        if (animation_direction == 1) {
-            current_animation_stage += OLED_BREATHING_BAR_STEP;
-            if (current_animation_stage >= OLED_BREATHING_BAR_MAX) {
-                animation_direction = ANIM_DIRECTION_NEGATIVE;
+        if (is_breathing) {
+            if (animation_direction == 1) {
+                current_animation_stage += OLED_BREATHING_BAR_STEP;
+                if (current_animation_stage >= OLED_BREATHING_BAR_MAX) {
+                    animation_direction = ANIM_DIRECTION_NEGATIVE;
+                }
+            } else {
+                current_animation_stage -= OLED_BREATHING_BAR_STEP;
+                if (current_animation_stage == OLED_BREATHING_BAR_MIN) {
+                    animation_direction = ANIM_DIRECTION_POSITIVE;
+                }
             }
-        } else {
-            current_animation_stage -= OLED_BREATHING_BAR_STEP;
-            if (current_animation_stage == OLED_BREATHING_BAR_MIN) {
-                animation_direction = ANIM_DIRECTION_POSITIVE;
-            }
+            oled_needs_refresh = 1;
         }
-        oled_needs_refresh = 1;
+
+        if (print_sensor_data) {
+            oled_needs_refresh = 1;
+        }
     }
 }
 
@@ -164,7 +188,7 @@ static void oled_print_header(char *title) {
  *        This function is non-blocking and relies on TIM3 interrupts.
  */
 void oled_print_breathing (void) {
-    set_tim3_state();
+    set_tim3_breathing_state();
     if (is_breathing && oled_needs_refresh) {
         oled_needs_refresh = 0;
         float brightness_level_oled_display = current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
@@ -199,6 +223,40 @@ void oled_print_count_number (int count) {
     
     u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
     u8g2_SendBuffer(&u8g2);
+}
+
+/**
+ * @brief The API to print the current values for the mpu-9250
+ */
+void oled_print_sensor_data(void) {
+    set_tim3_sensor_data_state();
+    if (!print_sensor_data || !oled_needs_refresh) {
+        // printf("oled_print_sensor_data : Early return\r\n");
+        return;
+    }
+
+    oled_needs_refresh = 0;
+    u8g2_ClearBuffer(&u8g2);
+    oled_print_header("Sensor Data");
+    char temp_str[2][48];
+    int16_t accel[3] = {0};
+    int16_t gyro[3] = {0};
+
+    mpu_read_raw_data(accel, gyro);
+    snprintf(temp_str[0], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", accel[0] % 1000, accel[1] % 1000, accel[2] % 1000);
+    snprintf(temp_str[1], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", gyro[0] % 1000, gyro[1] % 1000, gyro[2] % 1000);
+
+    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
+    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
+    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
+
+    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++) {
+        u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
+
+        u8g2_SendBuffer(&u8g2);
+        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
+        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
+    }
 }
 
 static void oled_print_main_menu(void) {
@@ -277,6 +335,7 @@ void oled_print_menu (display_state_t menu_type) {
 }
 
 static void main_menu_handler (void) {
+    printf("Current main menu setting: %d\n\r", current_settings.main_menu_option);
     switch (current_settings.main_menu_option) {
         case FAST_BLINK:
             current_settings.state = BLINK_MENU;
@@ -294,6 +353,7 @@ static void main_menu_handler (void) {
             is_breathing = true;
             oled_print_breathing();
             led_set_mode(LED_MODE_BREATHING, 0); // Complete snippet implementation
+            process_oled_events();
             break;
 
         case STATIC_LED:
@@ -303,23 +363,11 @@ static void main_menu_handler (void) {
             break;
 
         case SENSOR_DATA:
-            current_settings.state = SENSOR_DATA;
-            int16_t accel[3] = {0};
-            int16_t gyro[3] = {0};
-            char output_bfr[128];
-
-            // 1. Fetch fresh raw bits from the MPU-9250 over SPI
-            mpu_read_raw_data(accel, gyro);
-
-            // 2. Print Accelerometer Raw Values
-            uart_sendstring("\r\n--- MPU-9250 Raw Sensor Telemetry ---\r\n");
-            sprintf(output_bfr, "  ACCEL -> X: %d\tY: %d\tZ: %d\r\n", accel[0], accel[1], accel[2]);
-            uart_sendstring(output_bfr);
-
-            // 3. Print Gyroscope Raw Values
-            sprintf(output_bfr, "  GYRO  -> X: %d\tY: %d\tZ: %d\r\n", gyro[0], gyro[1], gyro[2]);
-            uart_sendstring(output_bfr);
-            uart_sendstring("-------------------------------------\r\n");
+            current_settings.state = SENSOR_MENU;
+            print_sensor_data = true;
+            printf("main_menu_handler: print_sensor_data flag set to true\r\n");
+            oled_print_sensor_data();
+            process_oled_events();
             break;
         
         default:
@@ -379,6 +427,13 @@ void back_event_handler() {
             current_settings.state = MAIN_MENU;
             oled_print_menu(current_settings.state);
             break;
+
+        case SENSOR_MENU:
+            current_settings.state = MAIN_MENU;
+            print_sensor_data = false;
+            printf("back_event_handler: print_sensor_data flag set to false\r\n");
+            reset_tim3_sensor_data_state();
+            oled_print_menu(current_settings.state);
 
         default:
             break;
@@ -529,4 +584,9 @@ void process_oled_events(void) {
     // Call the print breathing API if the flag is set via main_menu_handler
     if (is_breathing)
         oled_print_breathing();
+
+    if (print_sensor_data) {
+        // printf ("process_oled_events: Print sensor data flag set\r\n");
+        oled_print_sensor_data();
+    }
 }
