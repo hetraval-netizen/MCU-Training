@@ -128,9 +128,9 @@ int main(void)
 
     while (1) {
         set_error_led(false);
-        process_oled_events();
         button_process_events();
         uart_receive_and_process();
+        process_oled_events();
     }
 
     /* USER CODE END 2 */

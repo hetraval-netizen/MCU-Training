@@ -4,6 +4,8 @@
 #include "main.h"
 #include "u8g2.h"
 
+#include <stdbool.h>
+
 /* Enum for the main menu options */
 typedef enum {
     FAST_BLINK,
@@ -39,6 +41,12 @@ typedef struct {
     unsigned int blink_count;
     unsigned int led_brightness;
 }menu_settings_t;
+
+typedef struct {
+    bool is_breathing;
+    volatile int animation_direction;
+    volatile unsigned int current_animation_stage;
+}breathing_settings_t;
 
 #define OLED_BREATHING_DELAY 249
 #define OLED_SENSOR_DATA_DELAY 3000

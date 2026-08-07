@@ -26,10 +26,13 @@ const char *blink_menu_labels[] = {
 };
 
 static menu_settings_t current_settings = (menu_settings_t) { 0 };
+breathing_settings_t breathing_settings = {
+    .is_breathing = false,
+    .animation_direction = 1,
+    .current_animation_stage = 0,
+};
+
 volatile uint8_t oled_needs_refresh = 0;
-volatile unsigned int current_animation_stage = 0;
-volatile int animation_direction = 1;
-bool is_breathing = false;
 static unsigned int menu_start_ptr = 0;
 static unsigned int menu_end_ptr = 2;
 bool print_sensor_data = false;
@@ -37,9 +40,10 @@ bool print_sensor_data = false;
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
  */
-static void reset_tim3_state(void) {
+static void reset_tim3_breathing_state(void) {
     TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
-    is_breathing = false;
+    TIM3->CNT = 0;
+    breathing_settings.is_breathing = false;
 }
 
 /**
@@ -47,7 +51,8 @@ static void reset_tim3_state(void) {
  */
 static void reset_tim3_sensor_data_state(void) {
     TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
-    is_breathing = false;
+    TIM3->CNT = 0;
+    print_sensor_data = false;
 }
 
 /**
@@ -90,16 +95,16 @@ void TIM3_IRQHandler(void) {
     if (TIM3->SR & TIM_SR_UIF) {
         TIM3->SR &= ~TIM_SR_UIF;
 
-        if (is_breathing) {
-            if (animation_direction == 1) {
-                current_animation_stage += OLED_BREATHING_BAR_STEP;
-                if (current_animation_stage >= OLED_BREATHING_BAR_MAX) {
-                    animation_direction = ANIM_DIRECTION_NEGATIVE;
+        if (breathing_settings.is_breathing) {
+            if (breathing_settings.animation_direction == 1) {
+                breathing_settings.current_animation_stage += OLED_BREATHING_BAR_STEP;
+                if (breathing_settings.current_animation_stage >= OLED_BREATHING_BAR_MAX) {
+                    breathing_settings.animation_direction = ANIM_DIRECTION_NEGATIVE;
                 }
             } else {
-                current_animation_stage -= OLED_BREATHING_BAR_STEP;
-                if (current_animation_stage == OLED_BREATHING_BAR_MIN) {
-                    animation_direction = ANIM_DIRECTION_POSITIVE;
+                breathing_settings.current_animation_stage -= OLED_BREATHING_BAR_STEP;
+                if (breathing_settings.current_animation_stage == OLED_BREATHING_BAR_MIN) {
+                    breathing_settings.animation_direction = ANIM_DIRECTION_POSITIVE;
                 }
             }
             oled_needs_refresh = 1;
@@ -189,9 +194,9 @@ static void oled_print_header(char *title) {
  */
 void oled_print_breathing (void) {
     set_tim3_breathing_state();
-    if (is_breathing && oled_needs_refresh) {
+    if (breathing_settings.is_breathing && oled_needs_refresh) {
         oled_needs_refresh = 0;
-        float brightness_level_oled_display = current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+        float brightness_level_oled_display = breathing_settings.current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
         u8g2_ClearBuffer(&u8g2);
         oled_print_header("Breathing");
         u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
@@ -205,8 +210,11 @@ void oled_print_breathing (void) {
 void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
     oled_print_header("Static LED");
+
+    char temp_str[32];
+    snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
     float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
-    u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, "Brightness level <>");
+    u8g2_DrawStr(&u8g2, 0, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
     u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
     u8g2_SendBuffer(&u8g2);
 }
@@ -230,10 +238,8 @@ void oled_print_count_number (int count) {
  */
 void oled_print_sensor_data(void) {
     set_tim3_sensor_data_state();
-    if (!print_sensor_data || !oled_needs_refresh) {
-        // printf("oled_print_sensor_data : Early return\r\n");
+    if (!print_sensor_data || !oled_needs_refresh)
         return;
-    }
 
     oled_needs_refresh = 0;
     u8g2_ClearBuffer(&u8g2);
@@ -349,8 +355,8 @@ static void main_menu_handler (void) {
 
         case BREATHING:
             current_settings.state = BREATHE_MENU; // Ensure state tracks cleanly
-            current_animation_stage = OLED_BREATHING_BAR_INIT;
-            is_breathing = true;
+            breathing_settings.current_animation_stage = OLED_BREATHING_BAR_INIT;
+            breathing_settings.is_breathing = true;
             oled_print_breathing();
             led_set_mode(LED_MODE_BREATHING, 0); // Complete snippet implementation
             process_oled_events();
@@ -365,7 +371,6 @@ static void main_menu_handler (void) {
         case SENSOR_DATA:
             current_settings.state = SENSOR_MENU;
             print_sensor_data = true;
-            printf("main_menu_handler: print_sensor_data flag set to true\r\n");
             oled_print_sensor_data();
             process_oled_events();
             break;
@@ -418,8 +423,8 @@ void back_event_handler() {
 
         case BREATHE_MENU:
             current_settings.state = MAIN_MENU;
-            is_breathing = false;
-            reset_tim3_state();
+            breathing_settings.is_breathing = false;
+            reset_tim3_breathing_state();
             oled_print_menu(current_settings.state);
             break;
 
@@ -431,7 +436,6 @@ void back_event_handler() {
         case SENSOR_MENU:
             current_settings.state = MAIN_MENU;
             print_sensor_data = false;
-            printf("back_event_handler: print_sensor_data flag set to false\r\n");
             reset_tim3_sensor_data_state();
             oled_print_menu(current_settings.state);
 
@@ -581,12 +585,9 @@ void display_manager_init(void) {
  * @brief The API to control the oled events that needs to be controlled via Timers or Intrupts
  */
 void process_oled_events(void) {
-    // Call the print breathing API if the flag is set via main_menu_handler
-    if (is_breathing)
+    if (breathing_settings.is_breathing)
         oled_print_breathing();
 
-    if (print_sensor_data) {
-        // printf ("process_oled_events: Print sensor data flag set\r\n");
+    if (print_sensor_data)
         oled_print_sensor_data();
-    }
 }
