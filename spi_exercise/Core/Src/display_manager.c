@@ -10,6 +10,16 @@
 
 extern u8g2_t u8g2; // Extern variable for using the u8g2 library
 
+/* The header names for all the menus */
+const char *menu_headers[] = {
+    "Main Menu",
+    "Blink Menu",
+    "Fix Count",
+    "Breathing",
+    "Static LED",
+    "Sensor Data"
+};
+
 /* The names for all Main menu options */
 const char *main_menu_labels[] = {
     "Fast Blink",
@@ -178,7 +188,7 @@ uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
 /**
  * @brief This API will print the headers for each menu
  */
-static void oled_print_header(char *title) {
+static void oled_print_header(const char *title) {
     unsigned int title_size = (strlen(title) * OLED_TITLE_FONT_WIDTH);
     unsigned int start_ptr = (OLED_DISPLAY_PIXEL_WIDTH - title_size) / 2;
 
@@ -189,87 +199,13 @@ static void oled_print_header(char *title) {
     u8g2_SetFont(&u8g2, u8g2_font_6x10_tf); // Switch to normal font
 }
 
-/*
- * @brief The API to print the led brightness bar on the oled display.
- *        This function is non-blocking and relies on TIM3 interrupts.
- */
-static void oled_print_breathing (void) {
-    set_tim3_breathing_state();
-    if (breathing_settings.is_breathing && oled_needs_refresh) {
-        oled_needs_refresh = 0;
-        float brightness_level_oled_display = breathing_settings.current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
-        u8g2_ClearBuffer(&u8g2);
-        oled_print_header("Breathing");
-        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
-        u8g2_SendBuffer(&u8g2);
-    }
-}
-
-/*
- * @brief The API to print the led brightness bar on the oled display
- */
-static void oled_print_static_led_brightness (int brightness_level) {
-    clear_display();
-    oled_print_header("Static LED");
-
-    char temp_str[32];
-    snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
-    float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
-    u8g2_DrawStr(&u8g2, 0, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
-    u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
-    u8g2_SendBuffer(&u8g2);
-}
-
-/*
- * @brief The API to print the desired counts for the display
- */
-static void oled_print_count_number (int count) {
-    clear_display();
-
-    oled_print_header("Fix Count");
-    char temp_str[32];
-    snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
-    
-    u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
-    u8g2_SendBuffer(&u8g2);
-}
-
 /**
- * @brief The API to print the current values for the mpu-9250
+ * @brief This API will print the main menu on the oled display
  */
-static void oled_print_sensor_data(void) {
-    set_tim3_sensor_data_state();
-    if (!print_sensor_data || !oled_needs_refresh)
-        return;
-
-    oled_needs_refresh = 0;
-    u8g2_ClearBuffer(&u8g2);
-    oled_print_header("Sensor Data");
-    char temp_str[2][48];
-    int16_t accel[3] = {0};
-    int16_t gyro[3] = {0};
-
-    mpu_read_raw_data(accel, gyro);
-    snprintf(temp_str[0], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", accel[0] % 1000, accel[1] % 1000, accel[2] % 1000);
-    snprintf(temp_str[1], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", gyro[0] % 1000, gyro[1] % 1000, gyro[2] % 1000);
-
-    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
-    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
-    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
-
-    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++) {
-        u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
-
-        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
-        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
-    }
-    u8g2_SendBuffer(&u8g2);
-}
-
 static void oled_print_main_menu(void) {
     clear_display();
 
-    oled_print_header("Main Menu");
+    oled_print_header(menu_headers[0]);
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
@@ -293,10 +229,13 @@ static void oled_print_main_menu(void) {
     }
 }
 
+/**
+ * @brief This API will print the blink menu on the oled display
+ */
 static void oled_print_blink_menu(void) {
     clear_display();
 
-    oled_print_header("Blink Menu");
+    oled_print_header(menu_headers[1]);
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
@@ -318,6 +257,83 @@ static void oled_print_blink_menu(void) {
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
         current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
     }
+}
+
+/*
+ * @brief The API to print the desired counts for the display
+ */
+static void oled_print_count_number (int count) {
+    clear_display();
+
+    oled_print_header(menu_headers[2]);
+    char temp_str[32];
+    snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
+
+    u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
+    u8g2_SendBuffer(&u8g2);
+}
+
+/*
+ * @brief The API to print the led brightness bar on the oled display.
+ *        This function is non-blocking and relies on TIM3 interrupts.
+ */
+static void oled_print_breathing (void) {
+    set_tim3_breathing_state();
+    if (breathing_settings.is_breathing && oled_needs_refresh) {
+        oled_needs_refresh = 0;
+        float brightness_level_oled_display = breathing_settings.current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+        u8g2_ClearBuffer(&u8g2);
+        oled_print_header(menu_headers[3]);
+        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+        u8g2_SendBuffer(&u8g2);
+    }
+}
+
+/*
+ * @brief The API to print the led brightness bar on the oled display
+ */
+static void oled_print_static_led_brightness (int brightness_level) {
+    clear_display();
+    oled_print_header(menu_headers[4]);
+
+    char temp_str[32];
+    snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
+    float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+    u8g2_DrawStr(&u8g2, 0, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
+    u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+    u8g2_SendBuffer(&u8g2);
+}
+
+/**
+ * @brief The API to print the current values for the mpu-9250
+ */
+static void oled_print_sensor_data(void) {
+    set_tim3_sensor_data_state();
+    if (!print_sensor_data || !oled_needs_refresh)
+        return;
+
+    oled_needs_refresh = 0;
+    u8g2_ClearBuffer(&u8g2);
+    oled_print_header(menu_headers[5]);
+    char temp_str[2][48];
+    int16_t accel[3] = {0};
+    int16_t gyro[3] = {0};
+
+    mpu_read_raw_data(accel, gyro);
+    snprintf(temp_str[0], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", accel[0] % 1000, accel[1] % 1000, accel[2] % 1000);
+    snprintf(temp_str[1], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", gyro[0] % 1000, gyro[1] % 1000, gyro[2] % 1000);
+
+    unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
+    unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
+    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
+
+    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++) {
+        u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
+
+        y_axis += OLED_DISPLAY_STR_STEP_SIZE;
+        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
+    }
+    u8g2_SendBuffer(&u8g2);
 }
 
 /*
@@ -415,6 +431,7 @@ void back_event_handler() {
         case BLINK_MENU:
             current_settings.state = MAIN_MENU;
             oled_print_menu(current_settings.state);
+            current_settings.blink_menu_option = 0;
             break;
 
         case COUNT:
