@@ -113,7 +113,7 @@ int main(void)
     i2c_hardware_init();
     spi_hardware_init();
     btn_init();
-	  display_manager_init();
+    display_manager_init();
     uart_sendstring("Welcome to the UART Console!\r\n");
 
     uint8_t chip_num = mpu_read_reg(0x75);
