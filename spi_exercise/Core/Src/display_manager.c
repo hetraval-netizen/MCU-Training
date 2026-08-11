@@ -26,16 +26,16 @@ const char *blink_menu_labels[] = {
 };
 
 static menu_settings_t current_settings = (menu_settings_t) { 0 };
-breathing_settings_t breathing_settings = {
+static breathing_settings_t breathing_settings = {
     .is_breathing = false,
     .animation_direction = 1,
     .current_animation_stage = 0,
 };
 
-volatile uint8_t oled_needs_refresh = 0;
+static volatile uint8_t oled_needs_refresh = 0;
 static unsigned int menu_start_ptr = 0;
 static unsigned int menu_end_ptr = 2;
-bool print_sensor_data = false;
+static bool print_sensor_data = false;
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
@@ -119,7 +119,7 @@ void TIM3_IRQHandler(void) {
 /* 
  * @brief API to Clear the oled display 
  */
-void clear_display(){
+static void clear_display(){
     u8g2_ClearDisplay(&u8g2);
     u8g2_ClearBuffer(&u8g2);
 }
@@ -192,7 +192,7 @@ static void oled_print_header(char *title) {
  * @brief The API to print the led brightness bar on the oled display.
  *        This function is non-blocking and relies on TIM3 interrupts.
  */
-void oled_print_breathing (void) {
+static void oled_print_breathing (void) {
     set_tim3_breathing_state();
     if (breathing_settings.is_breathing && oled_needs_refresh) {
         oled_needs_refresh = 0;
@@ -207,7 +207,7 @@ void oled_print_breathing (void) {
 /*
  * @brief The API to print the led brightness bar on the oled display
  */
-void oled_print_static_led_brightness (int brightness_level) {
+static void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
     oled_print_header("Static LED");
 
@@ -222,7 +222,7 @@ void oled_print_static_led_brightness (int brightness_level) {
 /*
  * @brief The API to print the desired counts for the display
  */
-void oled_print_count_number (int count) {
+static void oled_print_count_number (int count) {
     clear_display();
 
     oled_print_header("Fix Count");
@@ -236,7 +236,7 @@ void oled_print_count_number (int count) {
 /**
  * @brief The API to print the current values for the mpu-9250
  */
-void oled_print_sensor_data(void) {
+static void oled_print_sensor_data(void) {
     set_tim3_sensor_data_state();
     if (!print_sensor_data || !oled_needs_refresh)
         return;
@@ -259,10 +259,10 @@ void oled_print_sensor_data(void) {
     for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++) {
         u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
 
-        u8g2_SendBuffer(&u8g2);
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
         current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
     }
+    u8g2_SendBuffer(&u8g2);
 }
 
 static void oled_print_main_menu(void) {
@@ -322,7 +322,7 @@ static void oled_print_blink_menu(void) {
 /*
  * @brief The API to print the desired menu type on the oled display
  */
-void oled_print_menu (display_state_t menu_type) {
+static void oled_print_menu (display_state_t menu_type) {
     printf("Current Menu type: %d\n", menu_type);
 
     switch (menu_type) {
