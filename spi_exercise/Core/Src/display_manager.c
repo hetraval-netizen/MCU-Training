@@ -179,13 +179,14 @@ uint8_t u8g2_byte_hw_i2c_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
  * @brief This API will print the headers for each menu
  */
 static void oled_print_header(char *title) {
+    unsigned int title_size = (strlen(title) * OLED_TITLE_FONT_WIDTH);
+    unsigned int start_ptr = (OLED_DISPLAY_PIXEL_WIDTH - title_size) / 2;
+
     // Set bold font for the title
     u8g2_SetFont(&u8g2, u8g2_font_7x14B_tr);
-    u8g2_DrawStr(&u8g2, 35, 12, title);
-
-    u8g2_DrawHLine(&u8g2, 0, 18, 128);
-
-    u8g2_SetFont(&u8g2, u8g2_font_6x10_tf);
+    u8g2_DrawStr(&u8g2, start_ptr, OLED_TITLE_STR_INIT_Y_AXIS, title);
+    u8g2_DrawHLine(&u8g2, 0, OLED_TITLE_LINE_Y_AXIS, OLED_DISPLAY_PIXEL_WIDTH);
+    u8g2_SetFont(&u8g2, u8g2_font_6x10_tf); // Switch to normal font
 }
 
 /*
