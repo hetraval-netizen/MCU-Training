@@ -27,6 +27,7 @@ typedef enum {
 typedef enum {
     MAIN_MENU,
     BLINK_MENU,
+    CONTINEOUS_BLINK,
     COUNT,
     BREATHE_MENU,
     STATIC_BRIGHTNESS,
@@ -47,6 +48,8 @@ typedef struct {
     volatile int animation_direction;
     volatile unsigned int current_animation_stage;
 }breathing_settings_t;
+
+#define PI 3.14
 
 // Definitions for Title
 #define OLED_TITLE_FONT_WIDTH 7

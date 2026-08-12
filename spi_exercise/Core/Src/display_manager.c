@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 extern u8g2_t u8g2; // Extern variable for using the u8g2 library
 
@@ -46,6 +47,15 @@ static volatile uint8_t oled_needs_refresh = 0;
 static unsigned int menu_start_ptr = 0;
 static unsigned int menu_end_ptr = 2;
 static bool print_sensor_data = false;
+static bool is_blinking = false;
+
+const int CENTER_X = 64;       // Horizontal center of the screen
+const int CENTER_Y = 44;       // Vertical center of the screen
+const float MIN_RADIUS = 0.0;  // Smallest size of the circle (pixels)
+const float MAX_RADIUS = 20.0; // Largest size of the circle (pixels)
+float BLINK_SPEED = 0;      // Speed of the breath (higher = faster)
+float angle = 0.0;             // Tracks the position in the sine wave
+
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
@@ -68,6 +78,15 @@ static void reset_tim3_sensor_data_state(void) {
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
  */
+static void reset_tim3_blink_state(void) {
+    TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
+    TIM3->CNT = 0;
+    is_blinking = false;
+}
+
+/**
+ * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ */
 static void set_tim3_breathing_state(void) {
     TIM3->ARR = OLED_BREATHING_DELAY;
     TIM3->DIER |= TIM_DIER_UIE;
@@ -79,6 +98,12 @@ static void set_tim3_breathing_state(void) {
  */
 static void set_tim3_sensor_data_state(void) {
     TIM3->ARR = OLED_SENSOR_DATA_DELAY;
+    TIM3->DIER |= TIM_DIER_UIE;
+    TIM3->CR1 |= TIM_CR1_CEN;
+}
+
+static void set_tim3_blink_state(void) {
+    TIM3->ARR = 10;
     TIM3->DIER |= TIM_DIER_UIE;
     TIM3->CR1 |= TIM_CR1_CEN;
 }
@@ -120,7 +145,7 @@ void TIM3_IRQHandler(void) {
             oled_needs_refresh = 1;
         }
 
-        if (print_sensor_data) {
+        if (print_sensor_data || is_blinking) {
             oled_needs_refresh = 1;
         }
     }
@@ -305,6 +330,44 @@ static void oled_print_static_led_brightness (int brightness_level) {
 }
 
 /**
+ * @brief The API to show the blink animation on display
+ */
+static void oled_print_blink (void) {
+    u8g2_ClearBuffer(&u8g2);
+    if (current_settings.main_menu_option == FAST_BLINK) {
+        BLINK_SPEED = 0.4;
+        oled_print_header("Contineous Fast");
+    }
+    else {
+        oled_print_header("Contineous Slow");
+        BLINK_SPEED = 0.1;
+    }
+
+    set_tim3_blink_state();
+    if (!is_blinking || !oled_needs_refresh)
+        return;
+
+    oled_needs_refresh = 0;
+    float sineValue = sin(angle);
+
+    // Normalize sineValue to 0.0 to 1.0 range
+    float normalizedSine = (sineValue + 1.0) / 2.0;
+
+    // Scale the normalized value to your pixel range
+    int currentRadius = MIN_RADIUS + (normalizedSine * (MAX_RADIUS - MIN_RADIUS));
+
+    // Use u8g2.drawDisc() for a filled circle, or u8g2.drawCircle() for an outline
+    u8g2_DrawDisc(&u8g2, CENTER_X, CENTER_Y, currentRadius, U8G2_DRAW_ALL);
+
+    u8g2_SendBuffer(&u8g2);           // Push internal memory to the display
+
+    // 3. Advance the animation
+    angle += BLINK_SPEED;
+    if (angle >= 2 * PI)
+        angle = 0.0;               // Keep angle within bounds to prevent overflow
+}
+
+/**
  * @brief The API to print the current values for the mpu-9250
  */
 static void oled_print_sensor_data(void) {
@@ -401,6 +464,8 @@ static void main_menu_handler (void) {
 static void blink_menu_handler (void) {
     switch (current_settings.blink_menu_option) {
         case CONTINEOUS:
+            is_blinking = true;
+            current_settings.state = CONTINEOUS_BLINK;
             if (current_settings.main_menu_option == FAST_BLINK)
                 led_set_mode(LED_MODE_FAST_BLINK, 0);
             else
@@ -432,6 +497,13 @@ void back_event_handler() {
             current_settings.state = MAIN_MENU;
             oled_print_menu(current_settings.state);
             current_settings.blink_menu_option = 0;
+            break;
+
+        case CONTINEOUS_BLINK:
+            current_settings.state = BLINK_MENU;
+            is_blinking = false;
+            reset_tim3_blink_state();
+            oled_print_menu(current_settings.state);
             break;
 
         case COUNT:
@@ -608,4 +680,7 @@ void process_oled_events(void) {
 
     if (print_sensor_data)
         oled_print_sensor_data();
+
+    if (is_blinking)
+        oled_print_blink();
 }
