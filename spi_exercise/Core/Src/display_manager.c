@@ -18,7 +18,9 @@ const char *menu_headers[] = {
     "Fix Count",
     "Breathing",
     "Static LED",
-    "Sensor Data"
+    "Sensor Data",
+    "Contineous Fast",
+    "Contineous Slow"
 };
 
 /* The names for all Main menu options */
@@ -334,18 +336,19 @@ static void oled_print_static_led_brightness (int brightness_level) {
  */
 static void oled_print_blink (void) {
     u8g2_ClearBuffer(&u8g2);
-    if (current_settings.main_menu_option == FAST_BLINK) {
-        BLINK_SPEED = 0.4;
-        oled_print_header("Contineous Fast");
-    }
-    else {
-        oled_print_header("Contineous Slow");
-        BLINK_SPEED = 0.1;
-    }
 
-    set_tim3_blink_state();
     if (!is_blinking || !oled_needs_refresh)
         return;
+
+    set_tim3_blink_state();
+    if (current_settings.main_menu_option == FAST_BLINK) {
+        BLINK_SPEED = OLED_CIRCLE_FAST_BLINK;
+        oled_print_header(menu_headers[6]);
+    }
+    else {
+        oled_print_header(menu_headers[7]);
+        BLINK_SPEED = OLED_CIRCLE_SLOW_BLINK;
+    }
 
     oled_needs_refresh = 0;
     float sineValue = sin(angle);

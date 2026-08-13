@@ -50,6 +50,8 @@ typedef struct {
 }breathing_settings_t;
 
 #define PI 3.14
+#define OLED_CIRCLE_SLOW_BLINK 0.1
+#define OLED_CIRCLE_FAST_BLINK 0.4
 
 // Definitions for Title
 #define OLED_TITLE_FONT_WIDTH 7
