@@ -1,0 +1,8 @@
+../Drivers/CMSIS/Include/core_cm4.h:1679:22:__NVIC_EnableIRQ	16	static,ignoring_inline_asm
+../Core/Src/main.c:65:6:uart_sendchar	16	static
+../Core/Src/main.c:76:6:uart_sendstring	16	static
+../Core/Src/main.c:83:6:uart_getchar	16	static
+../Core/Src/main.c:98:6:USART2_IRQHandler	4	static
+../Core/Src/main.c:115:5:main	16	static
+../Core/Src/main.c:205:6:SystemClock_Config	96	static
+../Core/Src/main.c:259:6:Error_Handler	4	static,ignoring_inline_asm

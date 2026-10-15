@@ -1,0 +1,5 @@
+../Core/Src/mpu.c:6:9:spi_transfer	24	static
+../Core/Src/mpu.c:26:6:mpu_write_reg	16	static
+../Core/Src/mpu.c:35:9:mpu_read_reg	24	static
+../Core/Src/mpu.c:48:6:mpu_configure	16	static
+../Core/Src/mpu.c:59:6:mpu_read_raw_data	40	static
