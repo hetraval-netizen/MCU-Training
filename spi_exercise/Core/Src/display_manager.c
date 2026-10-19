@@ -58,33 +58,18 @@ const float MAX_RADIUS = 20.0; // Largest size of the circle (pixels)
 float BLINK_SPEED = 0;      // Speed of the breath (higher = faster)
 float angle = 0.0;             // Tracks the position in the sine wave
 
-
 /**
- * @brief  Helper to reset the TIM3 register configuration and stop the animation.
+ * @brief Helper function to reset timer 3 registers and stop any ongoing animations
  */
-static void reset_tim3_breathing_state(void) {
+static void reset_tim3_state(void) {
     TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
     TIM3->CNT = 0;
+
+    print_sensor_data = false;
+    is_blinking = false;
     breathing_settings.is_breathing = false;
 }
 
-/**
- * @brief  Helper to reset the TIM3 register configuration and stop the animation.
- */
-static void reset_tim3_sensor_data_state(void) {
-    TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
-    TIM3->CNT = 0;
-    print_sensor_data = false;
-}
-
-/**
- * @brief  Helper to reset the TIM3 register configuration and stop the animation.
- */
-static void reset_tim3_blink_state(void) {
-    TIM3->CR1 &= ~TIM_CR1_CEN; // Disable Timer 3
-    TIM3->CNT = 0;
-    is_blinking = false;
-}
 
 /**
  * @brief  Helper to reset the TIM3 register configuration and stop the animation.
@@ -232,7 +217,7 @@ static void oled_print_header(const char *title) {
 static void oled_print_main_menu(void) {
     clear_display();
 
-    oled_print_header(menu_headers[0]);
+    oled_print_header(menu_headers[MAIN_MENU_INDEX]);
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
@@ -262,7 +247,7 @@ static void oled_print_main_menu(void) {
 static void oled_print_blink_menu(void) {
     clear_display();
 
-    oled_print_header(menu_headers[1]);
+    oled_print_header(menu_headers[BLINK_MENU_INDEX]);
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
@@ -292,7 +277,7 @@ static void oled_print_blink_menu(void) {
 static void oled_print_count_number (int count) {
     clear_display();
 
-    oled_print_header(menu_headers[2]);
+    oled_print_header(menu_headers[FIX_COUNT_MENU_INDEX]);
     char temp_str[32];
     snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
 
@@ -310,7 +295,7 @@ static void oled_print_breathing (void) {
         oled_needs_refresh = 0;
         float brightness_level_oled_display = breathing_settings.current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
         u8g2_ClearBuffer(&u8g2);
-        oled_print_header(menu_headers[3]);
+        oled_print_header(menu_headers[BREATHING_MENU_INDEX]);
         u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
         u8g2_SendBuffer(&u8g2);
     }
@@ -321,7 +306,7 @@ static void oled_print_breathing (void) {
  */
 static void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
-    oled_print_header(menu_headers[4]);
+    oled_print_header(menu_headers[STATIC_LED_MENU_INDEX]);
 
     char temp_str[32];
     snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
@@ -343,10 +328,10 @@ static void oled_print_blink (void) {
     set_tim3_blink_state();
     if (current_settings.main_menu_option == FAST_BLINK) {
         BLINK_SPEED = OLED_CIRCLE_FAST_BLINK;
-        oled_print_header(menu_headers[6]);
+        oled_print_header(menu_headers[CONTINEOUS_FAST_MENU_INDEX]);
     }
     else {
-        oled_print_header(menu_headers[7]);
+        oled_print_header(menu_headers[CONTINEOUS_SLOW_MENU_INDEX]);
         BLINK_SPEED = OLED_CIRCLE_SLOW_BLINK;
     }
 
@@ -380,7 +365,7 @@ static void oled_print_sensor_data(void) {
 
     oled_needs_refresh = 0;
     u8g2_ClearBuffer(&u8g2);
-    oled_print_header(menu_headers[5]);
+    oled_print_header(menu_headers[SENSOR_DATA_MENU_INDEX]);
     char temp_str[2][48];
     int16_t accel[3] = {0};
     int16_t gyro[3] = {0};
@@ -505,7 +490,7 @@ void back_event_handler() {
         case CONTINEOUS_BLINK:
             current_settings.state = BLINK_MENU;
             is_blinking = false;
-            reset_tim3_blink_state();
+            reset_tim3_state();
             oled_print_menu(current_settings.state);
             break;
 
@@ -517,7 +502,7 @@ void back_event_handler() {
         case BREATHE_MENU:
             current_settings.state = MAIN_MENU;
             breathing_settings.is_breathing = false;
-            reset_tim3_breathing_state();
+            reset_tim3_state();
             oled_print_menu(current_settings.state);
             break;
 
@@ -529,7 +514,7 @@ void back_event_handler() {
         case SENSOR_MENU:
             current_settings.state = MAIN_MENU;
             print_sensor_data = false;
-            reset_tim3_sensor_data_state();
+            reset_tim3_state();
             oled_print_menu(current_settings.state);
 
         default:

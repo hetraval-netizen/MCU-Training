@@ -35,6 +35,17 @@ typedef enum {
     TOTAL_MENU_COUNT
 } display_state_t;
 
+typedef enum {
+    MAIN_MENU_INDEX,
+    BLINK_MENU_INDEX,
+    FIX_COUNT_MENU_INDEX,
+    BREATHING_MENU_INDEX,
+    STATIC_LED_MENU_INDEX,
+    SENSOR_DATA_MENU_INDEX,
+    CONTINEOUS_FAST_MENU_INDEX,
+    CONTINEOUS_SLOW_MENU_INDEX
+} menu_index_t;
+
 typedef struct {
     display_state_t state;
     unsigned int main_menu_option;
