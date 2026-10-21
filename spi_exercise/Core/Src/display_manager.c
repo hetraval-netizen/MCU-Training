@@ -45,17 +45,17 @@ static breathing_settings_t breathing_settings = {
     .current_animation_stage = 0,
 };
 
-static volatile uint8_t oled_needs_refresh = 0;
-static unsigned int menu_start_ptr = 0;
-static unsigned int menu_end_ptr = 2;
+static volatile bool oled_needs_refresh = false;
+static unsigned int menu_start_index = 0;
+static unsigned int menu_end_index = OLED_DISPLAY_MAX_MENU_OPTIONS;
 static bool print_sensor_data = false;
 static bool is_blinking = false;
 
-const int CENTER_X = 64;       // Horizontal center of the screen
-const int CENTER_Y = 44;       // Vertical center of the screen
-const float MIN_RADIUS = 0.0;  // Smallest size of the circle (pixels)
-const float MAX_RADIUS = 20.0; // Largest size of the circle (pixels)
-float BLINK_SPEED = 0;      // Speed of the breath (higher = faster)
+const int center_x = 64;       // Horizontal center of the screen
+const int center_y = 44;       // Vertical center of the screen
+const float min_radius = 0.0;  // Smallest size of the circle (pixels)
+const float max_radius = 20.0; // Largest size of the circle (pixels)
+float disc_blink_speed = 0;      // Speed of the breath (higher = faster)
 float angle = 0.0;             // Tracks the position in the sine wave
 
 /**
@@ -129,11 +129,11 @@ void TIM3_IRQHandler(void) {
                     breathing_settings.animation_direction = ANIM_DIRECTION_POSITIVE;
                 }
             }
-            oled_needs_refresh = 1;
+            oled_needs_refresh = true;
         }
 
         if (print_sensor_data || is_blinking) {
-            oled_needs_refresh = 1;
+            oled_needs_refresh = true;
         }
     }
 }
@@ -223,7 +223,7 @@ static void oled_print_main_menu(void) {
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
-    for (int menu_ptr = menu_start_ptr; menu_ptr < menu_end_ptr + 1; menu_ptr++){
+    for (int menu_ptr = menu_start_index; menu_ptr < menu_end_index + 1; menu_ptr++){
         if (menu_ptr == current_settings.main_menu_option){
             u8g2_SetDrawColor(&u8g2, 1);
             u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
@@ -300,7 +300,7 @@ static void oled_draw_brightness_bar (int percentage) {
 static void oled_print_breathing (void) {
     set_tim3_breathing_state();
     if (breathing_settings.is_breathing && oled_needs_refresh) {
-        oled_needs_refresh = 0;
+        oled_needs_refresh = false;
         u8g2_ClearBuffer(&u8g2);
         oled_print_header(menu_headers[BREATHING_MENU_INDEX]);
         oled_draw_brightness_bar (breathing_settings.current_animation_stage);
@@ -333,65 +333,93 @@ static void oled_print_blink (void) {
 
     set_tim3_blink_state();
     if (current_settings.main_menu_option == FAST_BLINK) {
-        BLINK_SPEED = OLED_CIRCLE_FAST_BLINK;
+        disc_blink_speed = OLED_CIRCLE_FAST_BLINK;
         oled_print_header(menu_headers[CONTINEOUS_FAST_MENU_INDEX]);
     }
     else {
         oled_print_header(menu_headers[CONTINEOUS_SLOW_MENU_INDEX]);
-        BLINK_SPEED = OLED_CIRCLE_SLOW_BLINK;
+        disc_blink_speed = OLED_CIRCLE_SLOW_BLINK;
     }
 
-    oled_needs_refresh = 0;
+    oled_needs_refresh = false;
     float sineValue = sin(angle);
 
     // Normalize sineValue to 0.0 to 1.0 range
     float normalizedSine = (sineValue + 1.0) / 2.0;
 
     // Scale the normalized value to your pixel range
-    int currentRadius = MIN_RADIUS + (normalizedSine * (MAX_RADIUS - MIN_RADIUS));
+    int currentRadius = min_radius + (normalizedSine * (max_radius - min_radius));
 
     // Use u8g2.drawDisc() for a filled circle, or u8g2.drawCircle() for an outline
-    u8g2_DrawDisc(&u8g2, CENTER_X, CENTER_Y, currentRadius, U8G2_DRAW_ALL);
+    u8g2_DrawDisc(&u8g2, center_x, center_y, currentRadius, U8G2_DRAW_ALL);
 
     u8g2_SendBuffer(&u8g2);           // Push internal memory to the display
 
     // 3. Advance the animation
-    angle += BLINK_SPEED;
+    angle += disc_blink_speed;
     if (angle >= 2 * PI)
         angle = 0.0;               // Keep angle within bounds to prevent overflow
 }
 
 /**
- * @brief The API to print the current values for the mpu-9250
+ * @brief Helper API to truncate a reading to its first 3 digits.
  */
-static void oled_print_sensor_data(void) {
+static int truncate_to_3_digits(int value)
+{
+    while (value >= 1000 || value <= -1000)
+        value /= 10;
+
+    return value;
+}
+
+/**
+ * @brief API to print the current MPU-9250 sensor values.
+ */
+static void oled_print_sensor_data(void)
+{
     set_tim3_sensor_data_state();
+
     if (!print_sensor_data || !oled_needs_refresh)
         return;
 
-    oled_needs_refresh = 0;
+    oled_needs_refresh = false;
+
     u8g2_ClearBuffer(&u8g2);
     oled_print_header(menu_headers[SENSOR_DATA_MENU_INDEX]);
-    char temp_str[2][48];
+
+    char temp_str[2][21];
     int16_t accel[3] = {0};
     int16_t gyro[3] = {0};
 
     mpu_read_raw_data(accel, gyro);
-    snprintf(temp_str[0], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", accel[0] % 1000, accel[1] % 1000, accel[2] % 1000);
-    snprintf(temp_str[1], sizeof(temp_str[0]), "X:%03d Y:%03d Z:%03d", gyro[0] % 1000, gyro[1] % 1000, gyro[2] % 1000);
+
+    snprintf(temp_str[0], sizeof(temp_str[0]),
+             "X:%03d Y:%03d Z:%03d",
+             truncate_to_3_digits(accel[0]),
+             truncate_to_3_digits(accel[1]),
+             truncate_to_3_digits(accel[2]));
+
+    snprintf(temp_str[1], sizeof(temp_str[1]),
+             "X:%03d Y:%03d Z:%03d",
+             truncate_to_3_digits(gyro[0]),
+             truncate_to_3_digits(gyro[1]),
+             truncate_to_3_digits(gyro[2]));
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
-    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++) {
+    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++)
+    {
         u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
 
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
         current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
     }
+
     u8g2_SendBuffer(&u8g2);
 }
+
 
 /*
  * @brief The API to print the desired menu type on the oled display
@@ -458,7 +486,10 @@ static void main_menu_handler (void) {
 static void blink_menu_handler (void) {
     switch (current_settings.blink_menu_option) {
         case CONTINEOUS:
+            printf("Setting is_blinking as true\n");
             is_blinking = true;
+            oled_needs_refresh = true;
+            set_tim3_blink_state();
             current_settings.state = CONTINEOUS_BLINK;
             if (current_settings.main_menu_option == FAST_BLINK)
                 led_set_mode(LED_MODE_FAST_BLINK, 0);
@@ -539,9 +570,9 @@ void up_event_handler() {
             if (current_settings.main_menu_option == FAST_BLINK)
                 return;
             
-            if (current_settings.main_menu_option == menu_start_ptr){
-                menu_start_ptr--;
-                menu_end_ptr--;
+            if (current_settings.main_menu_option == menu_start_index){
+                menu_start_index--;
+                menu_end_index--;
             }
 
             current_settings.main_menu_option--;
@@ -586,9 +617,9 @@ void down_event_handler() {
             if (current_settings.main_menu_option == SENSOR_DATA)
                 return;
             
-            if (current_settings.main_menu_option == menu_end_ptr){
-                menu_start_ptr++;
-                menu_end_ptr++;
+            if (current_settings.main_menu_option == menu_end_index){
+                menu_start_index++;
+                menu_end_index++;
             }
 
             current_settings.main_menu_option++;
