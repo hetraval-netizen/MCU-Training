@@ -285,6 +285,14 @@ static void oled_print_count_number (int count) {
     u8g2_SendBuffer(&u8g2);
 }
 
+/**
+ * @brief Helper API to draw the brightness bar on the oled
+ */
+static void oled_draw_brightness_bar (int percentage) {
+    float bar_width = percentage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
+    u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, bar_width, OLED_DISPLAY_BOX_HEIGHT);
+}
+
 /*
  * @brief The API to print the led brightness bar on the oled display.
  *        This function is non-blocking and relies on TIM3 interrupts.
@@ -293,10 +301,9 @@ static void oled_print_breathing (void) {
     set_tim3_breathing_state();
     if (breathing_settings.is_breathing && oled_needs_refresh) {
         oled_needs_refresh = 0;
-        float brightness_level_oled_display = breathing_settings.current_animation_stage * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
         u8g2_ClearBuffer(&u8g2);
         oled_print_header(menu_headers[BREATHING_MENU_INDEX]);
-        u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+        oled_draw_brightness_bar (breathing_settings.current_animation_stage);
         u8g2_SendBuffer(&u8g2);
     }
 }
@@ -310,9 +317,8 @@ static void oled_print_static_led_brightness (int brightness_level) {
 
     char temp_str[32];
     snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
-    float brightness_level_oled_display = brightness_level * OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR;
     u8g2_DrawStr(&u8g2, 0, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
-    u8g2_DrawBox(&u8g2, 0, OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR, brightness_level_oled_display, OLED_DISPLAY_BOX_HEIGHT);
+    oled_draw_brightness_bar(brightness_level);
     u8g2_SendBuffer(&u8g2);
 }
 
