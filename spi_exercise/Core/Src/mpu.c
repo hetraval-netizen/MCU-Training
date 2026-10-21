@@ -30,7 +30,8 @@ void mpu_configure(void) {
     // 1. Wake up the device and set clock source to Gyroscope Z-axis PLL (highly recommended for stability)
     mpu_write_reg(MPU_REG_PWR_MGMT_1, 0x01); 
     
-    // Small delay to let the internal clock source settle
+    // The MPU needs time to switch clock sources and allow the PLL to stabilize before
+    // subsequent configuration or sensor readings.
     for (volatile uint32_t i = 0; i < 10000; i++);
 
     // 2. Configure Accelerometer Full Scale Range to ±2g (0x00)

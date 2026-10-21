@@ -116,9 +116,9 @@ int main(void)
     display_manager_init();
     uart_sendstring("Welcome to the UART Console!\r\n");
 
-    uint8_t chip_num = mpu_read_reg(0x75);
+    uint8_t chip_num = mpu_read_reg(MPU_WHO_AM_I_REG);
 
-    if (chip_num == 0x71 || chip_num == 0x70){
+    if (chip_num == MPU9250_CHIP_ID || chip_num == MPU6500_CHIP_ID){
         uart_sendstring("SPI communication successfull!!!!\r\n");
         mpu_configure();
     }

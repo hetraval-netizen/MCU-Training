@@ -278,7 +278,7 @@ static void oled_print_count_number (int count) {
     clear_display();
 
     oled_print_header(menu_headers[FIX_COUNT_MENU_INDEX]);
-    char temp_str[32];
+    char temp_str[24];
     snprintf(temp_str, sizeof(temp_str), "Total blinks: <%d>", count);
 
     u8g2_DrawStr(&u8g2, OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
@@ -315,7 +315,7 @@ static void oled_print_static_led_brightness (int brightness_level) {
     clear_display();
     oled_print_header(menu_headers[STATIC_LED_MENU_INDEX]);
 
-    char temp_str[32];
+    char temp_str[22];
     snprintf(temp_str, sizeof(temp_str), "Brightness level: %d", brightness_level);
     u8g2_DrawStr(&u8g2, 0, OLED_DISPLAY_STR_INIT_Y_AXIS, temp_str);
     oled_draw_brightness_bar(brightness_level);
