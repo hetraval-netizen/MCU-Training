@@ -31,6 +31,7 @@ typedef enum {
 
 void led_control_init(void);
 void set_error_led(bool start);
+void led_reset_timer_state(void);
 void led_set_mode(Led_Mode_t mode, int param);
 
 #endif /* SRC_LED_CONTROL_H_ */
