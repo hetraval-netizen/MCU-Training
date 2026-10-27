@@ -4,6 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define MPU_COMBINE_BYTES(msb, lsb) \
+    ((int16_t)(((uint16_t)(msb) << 8) | (uint16_t)(lsb)))
+
 void mpu_write_reg (uint8_t reg, uint8_t data) {
     GPIOA->ODR &= ~GPIO_ODR_OD15;
 
@@ -31,7 +34,7 @@ void mpu_configure(void) {
     mpu_write_reg(MPU_REG_PWR_MGMT_1, 0x01); 
     
     // The MPU needs time to switch clock sources and allow the PLL to stabilize before
-    // subsequent configuration or sensor readings.
+    // subsequent configuration or sensor readings. Approx timing: ~0.6 ms
     for (volatile uint32_t i = 0; i < 10000; i++);
 
     // 2. Configure Accelerometer Full Scale Range to ±2g (0x00)
@@ -56,13 +59,11 @@ void mpu_read_raw_data(int16_t* accel, int16_t* gyro) {
     GPIOA->ODR |= GPIO_ODR_OD15;
 
     // Reconstruct 16-bit signed integers from high and low bytes
-    accel[0] = (int16_t)((raw_buffer[0] << 8)  | raw_buffer[1]);  // Accel X
-    accel[1] = (int16_t)((raw_buffer[2] << 8)  | raw_buffer[3]);  // Accel Y
-    accel[2] = (int16_t)((raw_buffer[4] << 8)  | raw_buffer[5]);  // Accel Z
-    
-    // Bytes 6 and 7 contain raw internal chip temperature data (skipping here)
+    accel[0] = MPU_COMBINE_BYTES(raw_buffer[0], raw_buffer[1]);
+    accel[1] = MPU_COMBINE_BYTES(raw_buffer[2], raw_buffer[3]);
+    accel[2] = MPU_COMBINE_BYTES(raw_buffer[4], raw_buffer[5]);
 
-    gyro[0]  = (int16_t)((raw_buffer[8] << 8)  | raw_buffer[9]);  // Gyro X
-    gyro[1]  = (int16_t)((raw_buffer[10] << 8) | raw_buffer[11]); // Gyro Y
-    gyro[2]  = (int16_t)((raw_buffer[12] << 8) | raw_buffer[13]); // Gyro Z
+    gyro[0] = MPU_COMBINE_BYTES(raw_buffer[8], raw_buffer[9]);
+    gyro[1] = MPU_COMBINE_BYTES(raw_buffer[10], raw_buffer[11]);
+    gyro[2] = MPU_COMBINE_BYTES(raw_buffer[12], raw_buffer[13]);
 }

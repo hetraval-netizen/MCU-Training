@@ -10,6 +10,8 @@
 #define MPU_REG_ACCEL_XOUT_H 0x3B // Start of 14-byte sensor data block
 #define MPU_REG_PWR_MGMT_1   0x6B
 #define MPU_REG_WHO_AM_I     0x75
+#define MPU9250_CHIP_ID      0x71
+#define MPU6500_CHIP_ID      0x70
 
 // --- Public Drivers ---
 void mpu_configure(void);

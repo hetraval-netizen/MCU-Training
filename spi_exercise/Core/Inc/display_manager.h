@@ -27,7 +27,7 @@ typedef enum {
 typedef enum {
     MAIN_MENU,
     BLINK_MENU,
-    CONTINEOUS_BLINK,
+    CONTINUOUS_BLINK,
     COUNT,
     BREATHE_MENU,
     STATIC_BRIGHTNESS,

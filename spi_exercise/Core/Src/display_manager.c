@@ -223,16 +223,16 @@ static void oled_print_main_menu(void) {
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
-    for (int menu_ptr = menu_start_index; menu_ptr < menu_end_index + 1; menu_ptr++){
-        if (menu_ptr == current_settings.main_menu_option){
+    for (int menu_index = menu_start_index; menu_index < menu_end_index + 1; menu_index++){
+        if (menu_index == current_settings.main_menu_option){
             u8g2_SetDrawColor(&u8g2, 1);
             u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
             u8g2_SetDrawColor(&u8g2, 0);
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_index]);
             u8g2_SetDrawColor(&u8g2, 1);
         }
         else {
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, main_menu_labels[menu_index]);
         }
 
         u8g2_SendBuffer(&u8g2);
@@ -253,16 +253,16 @@ static void oled_print_blink_menu(void) {
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
-    for (int menu_ptr = 0; menu_ptr < BLINK_MENU_TOTAL_COUNT; menu_ptr++){
-        if (menu_ptr == current_settings.blink_menu_option){
+    for (int menu_index = 0; menu_index < BLINK_MENU_TOTAL_COUNT; menu_index++){
+        if (menu_index == current_settings.blink_menu_option){
             u8g2_SetDrawColor(&u8g2, 1);
             u8g2_DrawBox(&u8g2, 0, current_box_pos, OLED_DISPLAY_PIXEL_WIDTH, OLED_DISPLAY_BOX_HEIGHT);
             u8g2_SetDrawColor(&u8g2, 0);
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_index]);
             u8g2_SetDrawColor(&u8g2, 1);
         }
         else {
-            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_ptr]);
+            u8g2_DrawStr(&u8g2, x_axis, y_axis, blink_menu_labels[menu_index]);
         }
 
         u8g2_SendBuffer(&u8g2);
@@ -409,9 +409,9 @@ static void oled_print_sensor_data(void)
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
     unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
-    for (int menu_ptr = 0; menu_ptr < 2; menu_ptr++)
+    for (int menu_index = 0; menu_index < OLED_DISPLAY_MAX_MENU_OPTIONS; menu_index++)
     {
-        u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_ptr]);
+        u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_index]);
 
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
         current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
@@ -419,7 +419,6 @@ static void oled_print_sensor_data(void)
 
     u8g2_SendBuffer(&u8g2);
 }
-
 
 /*
  * @brief The API to print the desired menu type on the oled display
@@ -490,7 +489,7 @@ static void blink_menu_handler (void) {
             is_blinking = true;
             oled_needs_refresh = true;
             set_tim3_blink_state();
-            current_settings.state = CONTINEOUS_BLINK;
+            current_settings.state = CONTINUOUS_BLINK;
             if (current_settings.main_menu_option == FAST_BLINK)
                 led_set_mode(LED_MODE_FAST_BLINK, 0);
             else
@@ -524,7 +523,7 @@ void back_event_handler() {
             current_settings.blink_menu_option = 0;
             break;
 
-        case CONTINEOUS_BLINK:
+        case CONTINUOUS_BLINK:
             current_settings.state = BLINK_MENU;
             is_blinking = false;
             reset_tim3_state();
