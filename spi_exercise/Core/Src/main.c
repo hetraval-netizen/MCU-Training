@@ -27,8 +27,10 @@
 #include "cmd.h"
 #include "uart.h"
 #include "btn.h"
+#include "mpu.h"
 #include "led_control.h"
 #include "i2c_peripheral.h"
+#include "spi_peripheral.h"
 #include "display_manager.h"
 #include "u8g2.h"
 /* USER CODE END Includes */
@@ -109,15 +111,26 @@ int main(void)
     led_control_init();
     uart_init();
     i2c_hardware_init();
+    spi_hardware_init();
     btn_init();
-	  display_manager_init();
+    display_manager_init();
     uart_sendstring("Welcome to the UART Console!\r\n");
+
+    uint8_t chip_num = mpu_read_reg(MPU_REG_WHO_AM_I);
+
+    if (chip_num == MPU9250_CHIP_ID || chip_num == MPU6500_CHIP_ID){
+        uart_sendstring("SPI communication successfull!!!!\r\n");
+        mpu_configure();
+    }
+    else {
+        uart_sendstring("SPI communication Error!!!\r\n");
+    }
 
     while (1) {
         set_error_led(false);
-        process_oled_events();
         button_process_events();
         uart_receive_and_process();
+        process_oled_events();
     }
 
     /* USER CODE END 2 */

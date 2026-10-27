@@ -4,12 +4,15 @@
 #include "main.h"
 #include "u8g2.h"
 
+#include <stdbool.h>
+
 /* Enum for the main menu options */
 typedef enum {
     FAST_BLINK,
     SLOW_BLINK,
     BREATHING,
     STATIC_LED,
+    SENSOR_DATA,
     MAIN_MENU_TOTAL_COUNT
 } main_menu_t;
 
@@ -24,11 +27,24 @@ typedef enum {
 typedef enum {
     MAIN_MENU,
     BLINK_MENU,
+    CONTINUOUS_BLINK,
     COUNT,
     BREATHE_MENU,
     STATIC_BRIGHTNESS,
+    SENSOR_MENU,
     TOTAL_MENU_COUNT
 } display_state_t;
+
+typedef enum {
+    MAIN_MENU_INDEX,
+    BLINK_MENU_INDEX,
+    FIX_COUNT_MENU_INDEX,
+    BREATHING_MENU_INDEX,
+    STATIC_LED_MENU_INDEX,
+    SENSOR_DATA_MENU_INDEX,
+    CONTINEOUS_FAST_MENU_INDEX,
+    CONTINEOUS_SLOW_MENU_INDEX
+} menu_index_t;
 
 typedef struct {
     display_state_t state;
@@ -38,20 +54,40 @@ typedef struct {
     unsigned int led_brightness;
 }menu_settings_t;
 
+typedef struct {
+    bool is_breathing;
+    volatile int animation_direction;
+    volatile unsigned int current_animation_stage;
+}breathing_settings_t;
+
+#define PI 3.14
+#define OLED_CIRCLE_SLOW_BLINK 0.1
+#define OLED_CIRCLE_FAST_BLINK 0.4
+
+// Definitions for Title
+#define OLED_TITLE_FONT_WIDTH 7
+#define OLED_TITLE_LINE_Y_AXIS 18
+#define OLED_TITLE_STR_INIT_Y_AXIS 12
+
+// Definitions for Breathing
 #define OLED_BREATHING_DELAY 249
 #define OLED_BREATHING_BAR_MIN 0
-#define OLED_BREATHING_BAR_MAX 105
 #define OLED_BREATHING_BAR_INIT 1
 #define OLED_BREATHING_BAR_STEP 1
+#define OLED_BREATHING_BAR_MAX 105
+
+// The OLED Display Definitions
 #define OLED_DISPLAY_BOX_HEIGHT 14
-#define OLED_DISPLAY_INIT_BOX_POS 10
+#define OLED_SENSOR_DATA_DELAY 3000
+#define OLED_DISPLAY_INIT_BOX_POS 24
 #define OLED_DISPLAY_PIXEL_WIDTH 128
+#define OLED_DISPLAY_STR_STEP_SIZE 13
 #define OLED_DISPLAY_STR_INIT_X_AXIS 4
-#define OLED_DISPLAY_STR_INIT_Y_AXIS 21
-#define OLED_DISPLAY_STR_STEP_SIZE 13 
+#define OLED_DISPLAY_STR_INIT_Y_AXIS 34
 #define OLED_DISPLAY_BRIGHTNESS_STEP 5
+#define OLED_DISPLAY_MAX_MENU_OPTIONS 2
 #define OLED_DISPLAY_STR_MIDDLE_INIT_X_AXIS 10
-#define OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR 25
+#define OLED_DISPLAY_BOX_POS_BRIGHTNESS_BAR 38
 #define OLED_DISPLAY_PERCENTAGE_TO_PIXEL_FOR_BRIGHTNESS_BAR 1.24
 
 /* Definitions for various files usage */
