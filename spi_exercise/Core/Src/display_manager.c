@@ -6,6 +6,7 @@
 #include "u8g2.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -361,10 +362,11 @@ static void oled_print_blink (void) {
         angle = 0.0;               // Keep angle within bounds to prevent overflow
 }
 
+
 /**
  * @brief Helper API to truncate a reading to its first 3 digits.
  */
-static int truncate_to_3_digits(int value)
+static int16_t truncate_to_3_digits(int16_t value)
 {
     while (value >= 1000 || value <= -1000)
         value /= 10;
@@ -387,34 +389,37 @@ static void oled_print_sensor_data(void)
     u8g2_ClearBuffer(&u8g2);
     oled_print_header(menu_headers[SENSOR_DATA_MENU_INDEX]);
 
-    char temp_str[2][21];
+    char temp_str[2][28];
     int16_t accel[3] = {0};
     int16_t gyro[3] = {0};
 
     mpu_read_raw_data(accel, gyro);
 
     snprintf(temp_str[0], sizeof(temp_str[0]),
-             "X:%03d Y:%03d Z:%03d",
-             truncate_to_3_digits(accel[0]),
-             truncate_to_3_digits(accel[1]),
-             truncate_to_3_digits(accel[2]));
+             "X:%c%03d Y:%c%03d Z:%c%03d",
+             accel[0] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(accel[0])),
+             accel[1] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(accel[1])),
+             accel[2] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(accel[2])));
 
     snprintf(temp_str[1], sizeof(temp_str[1]),
-             "X:%03d Y:%03d Z:%03d",
-             truncate_to_3_digits(gyro[0]),
-             truncate_to_3_digits(gyro[1]),
-             truncate_to_3_digits(gyro[2]));
+             "X:%c%03d Y:%c%03d Z:%c%03d",
+             gyro[0] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(gyro[0])),
+             gyro[1] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(gyro[1])),
+             gyro[2] < 0 ? '-' : ' ',
+             abs(truncate_to_3_digits(gyro[2])));
 
     unsigned int x_axis = OLED_DISPLAY_STR_INIT_X_AXIS;
     unsigned int y_axis = OLED_DISPLAY_STR_INIT_Y_AXIS;
-    unsigned int current_box_pos = OLED_DISPLAY_INIT_BOX_POS;
 
     for (int menu_index = 0; menu_index < OLED_DISPLAY_MAX_MENU_OPTIONS; menu_index++)
     {
         u8g2_DrawStr(&u8g2, x_axis, y_axis, temp_str[menu_index]);
-
         y_axis += OLED_DISPLAY_STR_STEP_SIZE;
-        current_box_pos += OLED_DISPLAY_STR_STEP_SIZE;
     }
 
     u8g2_SendBuffer(&u8g2);
