@@ -18,7 +18,7 @@ volatile int target_blinks = 0;         // Upper cutoff limit for finite count t
 /**
  * @brief  helper to reset the TIM2 register configuration.
  */
-static void led_reset_timer_state(void) {
+void led_reset_timer_state(void) {
     TIM2->CR1 &= ~TIM_CR1_CEN;
     TIM2->CNT = 0;
     TIM2->CCR1 = 0;
